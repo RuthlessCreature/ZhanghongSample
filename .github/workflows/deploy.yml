@@ -55,4 +55,10 @@ jobs:
           '
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/version-diff.html >/dev/null
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/drawing-review.html >/dev/null
+          curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/comment-check.html >/dev/null
           echo "Agent Hong module pages smoke passed"
+      - name: Production Module 03 regression
+        shell: bash
+        env:
+          COMMENT_API_URL: https://zhanghong.fhkq.best/api/comment-check
+        run: node tests/comment-pdf.integration.mjs
