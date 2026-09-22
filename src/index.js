@@ -1,44 +1,58 @@
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+const MAX_PAGES = 8;
+const MAX_BODY_BYTES = 38 * 1024 * 1024;
+const MAX_DETERMINISTIC = 160;
+const MAX_VISUAL_REGIONS = 12;
 
-const SYSTEM_PROMPT = `你是 Agent Hong 的建筑施工图版本变更审查引擎。
-你的任务不是设计建筑，也不是替代注册建筑师或审图机构，而是比较用户提供的两版施工图页面，找出可观察到的版本变化、疑似未同步修改、以及需要人工复核的风险。
+const SYSTEM_PROMPT = `你是 Agent Hong 的建筑施工图版本变更校核引擎。你只负责“版本变化与跨图一致性核对”，不替代注册建筑师、设计负责人或法定施工图审查。
 
-工作原则：
-1. 只报告图中有视觉证据支持的变化，不要脑补看不清的尺寸、材料、规范结论。
-2. 优先识别：墙体/门窗/轴网/尺寸/标高/房间名称/编号/文字说明/详图索引/构件位置/图框版本信息等变化。
-3. 特别寻找“改了一处但相关视图、剖面、详图、文字说明可能仍旧”的疑似漏同步问题。
-4. 如果无法确认，明确写“需人工复核”，并降低 confidence。
-5. 输出必须是严格 JSON，不要 Markdown，不要代码围栏，不要在 JSON 前后加解释。
-6. 所有文字字段使用简体中文。
+你会同时收到三类证据：
+A. 【确定性 PDF 文字证据】由程序直接从 PDF 文字层提取并比较；其中数字、文字、图号是最高优先级事实来源。
+B. 【视觉差异区域】由程序做图像 Diff 后裁出的 A/B 对照区域。
+C. 【完整页面低精度图】用于理解上下文、构件关系和跨页/跨图一致性。
 
-JSON 结构：
+强制规则：
+1. 若 A 类确定性证据与视觉读数冲突，以 A 类为准。绝不把视觉 OCR 猜到的数字覆盖程序提取值。
+2. 对精确尺寸、标高、编号、面积、Revision Note 等，只能引用 A 类给出的原文/数值，或者明确写“视觉可见但无法精确确认”。
+3. 不要把“程序明确的文字替换”重复包装成很多 AI 变化。AI 变化应强调工程含义、几何/构件变化和跨图一致性。
+4. 优先检查：平面↔立面、平面↔剖面、平面↔门窗表/材料表/详图索引、房间名↔相关说明、尺寸链↔修订说明、图号↔标题栏。
+5. 对疑似漏同步，必须说清：哪张图发生了什么、哪张关联图没有同步、证据是什么。
+6. 不根据图纸做法律/规范合规结论；可以提示“需复核防火/疏散/构造等影响”，但不得声称满足或违反某条规范，除非用户另行提供规范证据。
+7. 不确定时降低 confidence 并写“需人工复核”，禁止补造不存在的尺寸、房间、门窗或规范。
+8. 只输出严格 JSON，不要 Markdown，不要代码围栏。
+
+输出结构：
 {
-  "summary": "一句话总结本次版本变化",
-  "overall": "整体判断，强调最需要人看的地方",
-  "counts": {"changed": 0, "highRisk": 0, "possibleMissedSync": 0},
-  "changes": [
+  "summary": "一句话总结",
+  "overall": "2-4句话，强调真正需要人工看的问题",
+  "semanticChanges": [
     {
-      "id": "C01",
-      "severity": "high|medium|low",
-      "category": "墙体|门窗|轴网|尺寸|标高|文字|编号|构件|图框|其他",
-      "location": "页码/轴网/房间/图号等可定位信息",
-      "versionA": "A版可观察状态",
-      "versionB": "B版可观察状态",
-      "impact": "可能影响；不能确认时写需人工复核",
-      "confidence": 0.0
+      "id":"C01",
+      "severity":"high|medium|low",
+      "category":"墙体|门窗|轴网|尺寸|标高|文字|编号|构件|图框|其他",
+      "location":"图号/页码/轴网/房间等",
+      "versionA":"A版状态；精确数字必须来自确定性证据",
+      "versionB":"B版状态；精确数字必须来自确定性证据",
+      "impact":"工程影响或需复核事项",
+      "evidenceSource":"exact_text|mixed|visual|ai",
+      "deterministicIds":["T001"],
+      "confidence":0.0
     }
   ],
   "syncRisks": [
     {
-      "id": "R01",
-      "severity": "high|medium|low",
-      "location": "位置",
-      "issue": "疑似漏同步/前后不一致说明",
-      "evidence": "图中证据",
-      "confidence": 0.0
+      "id":"R01",
+      "severity":"high|medium|low",
+      "location":"跨图位置",
+      "issue":"疑似漏同步说明",
+      "evidence":"具体证据",
+      "evidenceSource":"mixed|visual|exact_text|ai",
+      "deterministicIds":["T001"],
+      "confidence":0.0
     }
   ],
-  "verification": ["建议人工核查项1", "建议人工核查项2"]
+  "verification":["按优先级排列的人工复核动作"],
+  "limitations":["本次分析的证据局限，例如扫描图无文字层、只读取前8页等"]
 }`;
 
 function json(data, status = 200) {
@@ -47,163 +61,177 @@ function json(data, status = 200) {
 
 function dataUrlBytes(s) {
   if (typeof s !== "string") return 0;
-  const i = s.indexOf(",");
-  const b64 = i >= 0 ? s.slice(i + 1) : s;
+  const i = s.indexOf(","), b64 = i >= 0 ? s.slice(i + 1) : s;
   return Math.ceil((b64.length * 3) / 4);
 }
+
+function validImage(s) { return typeof s === "string" && /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i.test(s); }
 
 function validatePayload(body) {
   if (!body || typeof body !== "object") return "请求体无效";
   for (const key of ["versionA", "versionB"]) {
     const v = body[key];
     if (!v || !Array.isArray(v.pages) || v.pages.length === 0) return `${key} 缺少图纸页面`;
-    if (v.pages.length > 8) return `${key} 最多支持 8 页`;
-    for (const p of v.pages) {
-      if (typeof p !== "string" || !p.startsWith("data:image/")) return `${key} 页面格式无效`;
-    }
+    if (v.pages.length > MAX_PAGES) return `${key} 最多支持 ${MAX_PAGES} 页`;
+    for (const p of v.pages) if (!p || !validImage(p.image)) return `${key} 页面格式无效`;
   }
-  const all = [...body.versionA.pages, ...body.versionB.pages];
-  const total = all.reduce((n, p) => n + dataUrlBytes(p), 0);
-  if (total > 28 * 1024 * 1024) return "图纸预处理后总大小超过 28MB，请减少页数或文件尺寸";
+  const regions = body?.deterministic?.visualRegions || [];
+  if (!Array.isArray(regions) || regions.length > MAX_VISUAL_REGIONS) return `视觉差异区域最多 ${MAX_VISUAL_REGIONS} 个`;
+  const all = [
+    ...body.versionA.pages.map(p=>p.image),
+    ...body.versionB.pages.map(p=>p.image),
+    ...regions.map(r=>r.image).filter(Boolean)
+  ];
+  const total = all.reduce((n,p)=>n+dataUrlBytes(p),0);
+  if (total > 34 * 1024 * 1024) return "预处理后的图像证据超过 34MB，请减少页数或压缩图纸";
   return null;
 }
 
-function buildUserContent(body) {
-  const content = [];
-  content.push({
-    type: "text",
-    text: `项目：${body.projectName || "未填写"}\n补充说明：${body.notes || "无"}\n下面先给出 A 版，再给出 B 版。请逐页比较，并重点检查可能的漏同步修改。`
-  });
-  body.versionA.pages.forEach((url, idx) => {
-    content.push({ type: "text", text: `A版｜${body.versionA.name || "版本A"}｜第 ${idx + 1} 页` });
-    content.push({ type: "image_url", image_url: { url } });
-  });
-  body.versionB.pages.forEach((url, idx) => {
-    content.push({ type: "text", text: `B版｜${body.versionB.name || "版本B"}｜第 ${idx + 1} 页` });
-    content.push({ type: "image_url", image_url: { url } });
-  });
-  return content;
-}
-
 function stripJsonFence(text) {
-  let s = String(text || "").trim();
-  s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-  const start = s.indexOf("{");
-  const end = s.lastIndexOf("}");
-  if (start >= 0 && end > start) s = s.slice(start, end + 1);
+  let s=String(text||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/i,"");
+  const start=s.indexOf("{"),end=s.lastIndexOf("}");
+  if(start>=0&&end>start)s=s.slice(start,end+1);
   return s;
 }
 
-async function callMiniMax(env, body) {
-  if (!env.MINIMAX_API_KEY) {
-    throw new Error("服务端尚未配置 MINIMAX_API_KEY");
-  }
-  const base = (env.MINIMAX_API_BASE || "https://api.minimax.io/v1").replace(/\/$/, "");
-  const model = env.MINIMAX_MODEL || "MiniMax-M3";
-  const resp = await fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.MINIMAX_API_KEY}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserContent(body) }
-      ],
-      temperature: 0.2,
-      max_completion_tokens: 9000,
-      reasoning_split: true,
-      thinking: { type: "adaptive" }
-    })
-  });
+function safeArray(v){return Array.isArray(v)?v:[]}
+function source(v, fallback="ai"){return ["exact_text","mixed","visual","ai"].includes(v)?v:fallback}
+function severity(v){return ["high","medium","low"].includes(v)?v:"medium"}
+function confidence(v){const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.min(1,n)):.5}
 
-  const raw = await resp.text();
-  if (!resp.ok) {
-    throw new Error(`MiniMax API ${resp.status}: ${raw.slice(0, 500)}`);
-  }
-
-  let envelope;
-  try { envelope = JSON.parse(raw); } catch { throw new Error("MiniMax 返回了非 JSON 响应"); }
-  const content = envelope?.choices?.[0]?.message?.content;
-  if (!content) throw new Error("MiniMax 未返回分析内容");
-
-  // MiniMax M3 的 OpenAI-compatible 接口在部分多模态请求中会直接
-  // 把结构化结果作为 object 放进 message.content，而不是 JSON 字符串。
-  if (content && typeof content === "object" && !Array.isArray(content)) {
-    return { result: content, usage: envelope.usage || null, model };
-  }
-
-  // 兼容 content parts 数组，优先拼接 text；若某个 part 本身就是对象则直接使用。
-  if (Array.isArray(content)) {
-    const direct = content.find(x => x && typeof x === "object" && !("text" in x) && !("type" in x));
-    if (direct) return { result: direct, usage: envelope.usage || null, model };
-    const textContent = content.map(x => typeof x === "string" ? x : (x?.text || "")).join("").trim();
-    try {
-      return { result: JSON.parse(stripJsonFence(textContent)), usage: envelope.usage || null, model };
-    } catch {}
-  }
-
-  try {
-    return { result: JSON.parse(stripJsonFence(content)), usage: envelope.usage || null, model };
-  } catch {
-    return {
-      result: {
-        summary: "模型已完成分析，但结构化解析失败",
-        overall: typeof content === "string" ? content : JSON.stringify(content),
-        counts: { changed: 0, highRisk: 0, possibleMissedSync: 0 },
-        changes: [], syncRisks: [], verification: ["请人工阅读上方模型原始结果"]
-      },
-      usage: envelope.usage || null,
-      model,
-      parseWarning: true
-    };
-  }
+function deterministicForPrompt(body) {
+  const d=body?.deterministic||{};
+  const changes=safeArray(d.textChanges).slice(0,MAX_DETERMINISTIC).map(x=>({
+    id:x.id,sheetId:x.sheetId,pageA:x.pageA,pageB:x.pageB,type:x.type,before:x.before,after:x.after,
+    numeric:x.numeric||null,position:x.position,matchConfidence:x.matchConfidence
+  }));
+  return {
+    analysisMode:d?.textCoverage?.mode||"visual-only",
+    textCoverage:d?.textCoverage||{},
+    pagePairs:safeArray(d.pagePairs),
+    exactTextChanges:changes,
+    visualRegions:safeArray(d.visualRegions).map(({image,...x})=>x)
+  };
 }
 
-async function handleCompare(request, env) {
-  const len = Number(request.headers.get("content-length") || "0");
-  if (len > 38 * 1024 * 1024) return json({ error: "请求过大，最大 38MB" }, 413);
-  let body;
-  try { body = await request.json(); } catch { return json({ error: "请求 JSON 无效" }, 400); }
-  const error = validatePayload(body);
-  if (error) return json({ error }, 400);
+function buildUserContent(body) {
+  const content=[];
+  const det=deterministicForPrompt(body);
+  content.push({type:"text",text:`项目：${body.projectName||"未填写"}\n用户关注：${body.notes||"无"}\n\n以下 JSON 是程序生成的确定性/定位证据。对精确文字与数字，以 exactTextChanges 为最高优先级事实来源：\n${JSON.stringify(det)}`});
 
-  try {
-    const out = await callMiniMax(env, body);
-    return json({ ok: true, ...out });
-  } catch (e) {
-    console.error("compare_failed", e);
-    return json({ error: e?.message || "分析失败" }, 502);
+  const pairs=safeArray(body?.deterministic?.pagePairs);
+  const pageOrder=[];
+  if(pairs.length){
+    for(const p of pairs){if(p.pageA!==null&&p.pageB!==null)pageOrder.push(p)}
+  } else {
+    const n=Math.min(body.versionA.pages.length,body.versionB.pages.length);
+    for(let i=0;i<n;i++)pageOrder.push({pageA:i,pageB:i,sheetId:null});
   }
+  for(const pair of pageOrder){
+    const a=body.versionA.pages[pair.pageA],b=body.versionB.pages[pair.pageB];
+    content.push({type:"text",text:`完整页上下文｜${pair.sheetId||`A第${pair.pageA+1}页 / B第${pair.pageB+1}页`}｜先A后B。完整页主要用于理解构件和跨图关系，不要靠它猜小数字。`});
+    content.push({type:"image_url",image_url:{url:a.image,detail:"low",max_long_side_pixel:1100}});
+    content.push({type:"image_url",image_url:{url:b.image,detail:"low",max_long_side_pixel:1100}});
+  }
+
+  const regions=safeArray(body?.deterministic?.visualRegions).slice(0,MAX_VISUAL_REGIONS);
+  for(const r of regions){
+    if(!validImage(r.image))continue;
+    content.push({type:"text",text:`高精度视觉差异 ${r.id}｜图号 ${r.sheetId||"未知"}｜A第${r.pageA}页 vs B第${r.pageB}页｜bbox=${JSON.stringify(r.bbox)}。图片左侧A版、右侧B版。`});
+    content.push({type:"image_url",image_url:{url:r.image,detail:"high",max_long_side_pixel:1200}});
+  }
+  return content;
+}
+
+function parseModelContent(envelope) {
+  const content=envelope?.choices?.[0]?.message?.content;
+  if(!content)throw new Error("MiniMax 未返回分析内容");
+  if(content&&typeof content==="object"&&!Array.isArray(content))return content;
+  if(Array.isArray(content)){
+    const direct=content.find(x=>x&&typeof x==="object"&&!("text" in x)&&!("type" in x));
+    if(direct)return direct;
+    const s=content.map(x=>typeof x==="string"?x:(x?.text||"")).join("");
+    return JSON.parse(stripJsonFence(s));
+  }
+  return JSON.parse(stripJsonFence(content));
+}
+
+async function callMiniMax(env, body) {
+  if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
+  const model=env.MINIMAX_MODEL||"MiniMax-M3";
+  const resp=await fetch(`${base}/chat/completions`,{
+    method:"POST",
+    headers:{Authorization:`Bearer ${env.MINIMAX_API_KEY}`,"content-type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages:[{role:"system",content:SYSTEM_PROMPT},{role:"user",content:buildUserContent(body)}],
+      temperature:.1,
+      max_completion_tokens:7000,
+      reasoning_split:true,
+      thinking:{type:"adaptive"}
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error(`MiniMax API ${resp.status}: ${raw.slice(0,600)}`);
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回了非 JSON 响应")}
+  let parsed;try{parsed=parseModelContent(envelope)}catch(e){
+    throw new Error(`模型结构化结果解析失败：${e?.message||e}`);
+  }
+  return {parsed,usage:envelope.usage||null,model};
+}
+
+function normalizeModelResult(parsed, body) {
+  const exact=safeArray(body?.deterministic?.textChanges).slice(0,MAX_DETERMINISTIC).map(x=>({...x,source:"pdf_text"}));
+  const semantic=safeArray(parsed?.semanticChanges || parsed?.changes).map((x,i)=>({
+    id:x?.id||`C${String(i+1).padStart(2,"0")}`,
+    severity:severity(x?.severity),category:String(x?.category||"其他"),location:String(x?.location||"位置待确认"),
+    versionA:String(x?.versionA||"需人工复核"),versionB:String(x?.versionB||"需人工复核"),impact:String(x?.impact||"需人工复核"),
+    evidenceSource:source(x?.evidenceSource,"ai"),deterministicIds:safeArray(x?.deterministicIds).filter(v=>typeof v==="string").slice(0,12),confidence:confidence(x?.confidence)
+  })).slice(0,60);
+  const risks=safeArray(parsed?.syncRisks).map((x,i)=>({
+    id:x?.id||`R${String(i+1).padStart(2,"0")}`,severity:severity(x?.severity),location:String(x?.location||"位置待确认"),
+    issue:String(x?.issue||"需人工复核"),evidence:String(x?.evidence||"证据不足，需人工复核"),evidenceSource:source(x?.evidenceSource,"ai"),
+    deterministicIds:safeArray(x?.deterministicIds).filter(v=>typeof v==="string").slice(0,12),confidence:confidence(x?.confidence)
+  })).slice(0,40);
+  const highRisk=[...semantic,...risks].filter(x=>x.severity==="high").length;
+  const mode=body?.deterministic?.textCoverage?.mode||"visual-only";
+  const limitations=safeArray(parsed?.limitations).map(String).slice(0,12);
+  if(body.versionA.sourcePages>MAX_PAGES||body.versionB.sourcePages>MAX_PAGES)limitations.unshift(`本次只读取每版前 ${MAX_PAGES} 页，原文件存在更多页面。`);
+  if(mode!=="hybrid")limitations.unshift("未检测到足够的 PDF 文字层，本次精确数字/文字主要依赖视觉，关键尺寸必须人工复核。");
+  return {
+    summary:String(parsed?.summary||"版本分析完成"),
+    overall:String(parsed?.overall||"请查看确定性证据与跨图风险。"),
+    analysisMode:mode,
+    counts:{exactText:exact.length,semantic:semantic.length,syncRisks:risks.length,highRisk},
+    exactChanges:exact,
+    semanticChanges:semantic,
+    syncRisks:risks,
+    verification:safeArray(parsed?.verification).map(String).slice(0,20),
+    limitations
+  };
+}
+
+async function handleCompare(request,env){
+  const len=Number(request.headers.get("content-length")||"0");
+  if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
+  let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
+  const error=validatePayload(body);if(error)return json({error},400);
+  try{
+    const {parsed,usage,model}=await callMiniMax(env,body);
+    return json({ok:true,result:normalizeModelResult(parsed,body),usage,model});
+  }catch(e){console.error("compare_failed",e);return json({error:e?.message||"分析失败"},502)}
 }
 
 export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    if (
-      url.pathname === "/smoke" ||
-      url.pathname === "/smoke.html" ||
-      url.pathname === "/pdf-e2e-test" ||
-      url.pathname === "/pdf-e2e-test.html" ||
-      url.pathname.startsWith("/testdata/")
-    ) {
-      return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+  async fetch(request,env){
+    const url=new URL(request.url);
+    if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
+      return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if (url.pathname === "/api/health") {
-      return json({
-        ok: true,
-        product: "Agent Hong",
-        feature: "drawing-version-diff",
-        model: env.MINIMAX_MODEL || "MiniMax-M3",
-        configured: Boolean(env.MINIMAX_API_KEY)
-      });
-    }
-    if (url.pathname === "/api/compare" && request.method === "POST") {
-      return handleCompare(request, env);
-    }
-    if (url.pathname.startsWith("/api/")) return json({ error: "Not found" }, 404);
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
+    if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
   }
 };
