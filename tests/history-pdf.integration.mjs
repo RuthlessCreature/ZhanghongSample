@@ -23,32 +23,32 @@ async function scan(bytes,meta){
 
 const projects=[
   {
-    projectId:'p-office',projectName:'2024 宜宾滨江办公楼',projectYear:2024,fileName:'Yibin_Office_Architecture.pdf',
+    projectId:'p-office',projectName:'2024 Yibin Riverside Office',projectYear:2024,fileName:'Yibin_Office_Architecture.pdf',
     pages:[
       ['SHEET: A-101','LEVEL 1 FLOOR PLAN','ROOM 205: SERVER ROOM','WINDOWS W01 W03','OFFICE LOBBY'],
-      ['SHEET: A-501','ROOF GARDEN DETAIL','屋顶花园节点 WATERPROOF MEMBRANE','PARAPET 女儿墙','DRAINAGE'],
+      ['SHEET: A-501','ROOF GARDEN DETAIL','ROOF GARDEN DETAIL WATERPROOF MEMBRANE','PARAPET','DRAINAGE'],
       ['SHEET: A-601','DOOR WINDOW SCHEDULE','W03 WINDOW 1500 1200']
     ]
   },
   {
-    projectId:'p-hotel',projectName:'2022 成都精品酒店',projectYear:2022,fileName:'Hotel_Architecture.pdf',
+    projectId:'p-hotel',projectName:'2022 Chengdu Boutique Hotel',projectYear:2022,fileName:'Hotel_Architecture.pdf',
     pages:[
       ['SHEET: A-111','TYPICAL GUESTROOM PLAN','ROOM 305: GUEST ROOM'],
-      ['SHEET: A-521','ACCESSIBLE TOILET DETAIL','无障碍卫生间节点','GRAB BAR','TURNING RADIUS 1500']
+      ['SHEET: A-521','ACCESSIBLE TOILET DETAIL','ACCESSIBLE TOILET DETAIL','GRAB BAR','TURNING RADIUS 1500']
     ]
   },
   {
-    projectId:'p-lab',projectName:'2023 深圳研发中心',projectYear:2023,fileName:'RND_Architecture.pdf',
+    projectId:'p-lab',projectName:'2023 Shenzhen R&D Center',projectYear:2023,fileName:'RND_Architecture.pdf',
     pages:[
       ['SHEET: A-102','LEVEL 2 FLOOR PLAN','ROOM 205: LAB SUPPORT','EQUIPMENT ROOM'],
-      ['SHEET: A-541','CURTAIN WALL DETAIL','幕墙节点','ALUMINIUM MULLION']
+      ['SHEET: A-541','CURTAIN WALL DETAIL','CURTAIN WALL DETAIL','ALUMINIUM MULLION']
     ]
   },
   {
-    projectId:'p-retail',projectName:'2021 重庆商业中心',projectYear:2021,fileName:'Retail_Architecture.pdf',
+    projectId:'p-retail',projectName:'2021 Chongqing Retail Center',projectYear:2021,fileName:'Retail_Architecture.pdf',
     pages:[
       ['SHEET: A-201','SOUTH ELEVATION','CURTAIN WALL','SIGNAGE ZONE'],
-      ['SHEET: A-531','STAIR DETAIL','楼梯节点','RAILING','TREAD 300 RISER 150']
+      ['SHEET: A-531','STAIR DETAIL','STAIR DETAIL','RAILING','TREAD 300 RISER 150']
     ]
   }
 ];
