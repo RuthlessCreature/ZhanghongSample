@@ -49,11 +49,17 @@ function isNewCommentLine(line=''){
 export function parseCommentLines(lines=[]){
   const raw=(lines||[]).map(cleanLine).filter(x=>x && x.length>1);
   const groups=[]; let current='';
+  const hasIndexed=raw.some(isNewCommentLine);
+  let started=!hasIndexed;
   const push=()=>{const s=stripLeadingIndex(current); if(s.length>=3) groups.push(s); current='';};
   for(const line of raw){
     if(isNewCommentLine(line)){
+      started=true;
       push(); current=line; continue;
     }
+    // Real review sheets commonly contain project title / table headers before item 1.
+    // If numbered items exist anywhere, ignore all leading non-item lines.
+    if(!started) continue;
     if(!current){ current=line; continue; }
     // Wrapped PDF/Word lines are normally short continuations; explicit punctuation often still belongs to same comment.
     if(current.length<220 && line.length<180) current += ' ' + line;
