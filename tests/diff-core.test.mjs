@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {diffTextItems, pairPages, summarizeDeterministicDiff, detectSheetId} from '../public/diff-core.js';
+import {diffTextItems, pairPages, summarizeDeterministicDiff, detectSheetId, mergeTextItems} from '../public/diff-core.js';
 
 const item=(str,x,y,w=.08,h=.02)=>({str,x,y,w,h});
 
@@ -11,7 +11,8 @@ const item=(str,x,y,w=.08,h=.02)=>({str,x,y,w,h});
   ]);
   assert.ok(changes.some(x=>x.before==='23000' && x.after==='23800' && x.numeric?.delta===800));
   assert.ok(changes.some(x=>x.before==='12000' && x.after==='12800' && x.numeric?.delta===800));
-  assert.ok(changes.some(x=>x.before==='ROOM 102' && x.after==='CONFERENCE ROOM 102'));
+  assert.ok(changes.some(x=>x.before==='ROOM 102' && x.type==='remove'));
+  assert.ok(changes.some(x=>x.after==='CONFERENCE ROOM 102' && x.type==='add'));
   assert.ok(!changes.some(x=>x.before==='UNCHANGED' || x.after==='UNCHANGED'));
 }
 
@@ -30,4 +31,27 @@ const item=(str,x,y,w=.08,h=.02)=>({str,x,y,w,h});
   assert.equal(d.textCoverage.mode,'visual-only');
   assert.equal(d.textChanges[0].numeric.delta,800);
 }
+
+{
+  const changes=diffTextItems([item('coordination.',.78,.15)],[item('CONFERENCE',.79,.16)]);
+  assert.ok(!changes.some(x=>x.type==='replace'), 'unrelated nearby labels must not be paired as replacement');
+}
+
+{
+  const changes=diffTextItems([item('A-101.',.78,.15)],[item('W03.',.79,.16)]);
+  assert.ok(!changes.some(x=>x.type==='replace'), 'different numeric shells must not produce a numeric replacement');
+  assert.ok(!changes.some(x=>x.numeric), 'different numeric shells must not produce numeric delta');
+}
+
+{
+  const merged=mergeTextItems([
+    item('Grid/partition',.70,.10,.08),
+    item('adjusted',.785,.10,.05),
+    item('+800.',.84,.10,.04),
+    item('23000',.30,.10,.02)
+  ]);
+  assert.ok(merged.some(x=>x.str.includes('Grid/partition adjusted +800.')));
+  assert.ok(merged.some(x=>x.str==='23000'));
+}
+
 console.log('diff-core tests passed');
