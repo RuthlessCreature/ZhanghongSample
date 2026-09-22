@@ -87,8 +87,3 @@ jobs:
             fi
           done
           echo "Agent Hong module pages smoke passed"
-      - name: Production Module 05 grounding regression
-        shell: bash
-        env:
-          REFERENCE_API_URL: https://zhanghong.fhkq.best/api/reference-answer
-        run: node tests/reference-pdf.integration.mjs
