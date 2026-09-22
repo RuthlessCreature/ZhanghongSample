@@ -218,63 +218,158 @@ function normalizeModelResult(parsed, body) {
   };
 }
 
-function regressionFixture() {
-  const pixel="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAIAAADTED8xAAACvUlEQVR4nO3TMQEAIAzAMMC/5yFjRxMFfXpn5kDV2w6ATQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQNoHq+gE/QPNMGIAAAAASUVORK5CYII=";
-  const page=(sheetId,text)=>({pageNumber:1,image:pixel,sheetId,textItemCount:20,textDigest:text,textDigestTruncated:false});
+
+const REVIEW_SYSTEM_PROMPT = [
+  "你是 Agent Hong 的建筑施工图 AI 预审引擎。你的职责是先帮助设计院发现明显问题和跨图不一致，不替代设计负责人、注册执业人员或法定施工图审查。",
+  "",
+  "你会收到四类证据：",
+  "A. deterministic.alerts：程序从 PDF 文字层和规则引擎得到的硬检查结果，优先级最高。",
+  "B. drawing.pages[].textDigest：PDF 文字层摘要；精确编号、文字、尺寸若引用，优先使用这里或 A 类。",
+  "C. drawing.pages[].image：完整页面低精度图，用于理解图形、空间、构件和跨图关系。",
+  "D. reference.text：用户可选上传的院标、甲方要求或审查要点。只有这里明确存在的依据，才允许说‘不符合用户提供的依据’。",
+  "",
+  "强制规则：",
+  "1. 没有 reference.text 时，禁止声称‘违反规范’‘符合规范’或编造任何条文编号。最多写‘需按适用规范/院标复核’。",
+  "2. 程序硬检查结果不得被视觉 OCR 覆盖；编号、图号、门窗号等冲突以程序文字证据优先。",
+  "3. 重点检查：图号/图框、门窗编号与门窗表、平立剖一致性、房间名称/编号、详图索引、文字说明、CHECK/VERIFY/TBD 等未闭环项、明显尺寸/标高表达风险。",
+  "4. 不要为了凑数量重复 deterministic.alerts；AI issues 应补充工程语义、视觉问题或 deterministic 问题的实际影响。",
+  "5. 对跨图问题，要明确指出涉及哪些图号/页、为什么怀疑不一致、下一步怎么复核。",
+  "6. 对 CLR、CL、AFF 等多义缩写保持原文；图纸未明确含义时不得自行展开。",
+  "7. 看不清或证据不足时必须降低 confidence 并写‘需人工复核’，不得补造尺寸、构件或规范。",
+  "8. 只输出严格 JSON，不要 Markdown，不要代码围栏。",
+  "",
+  "输出 JSON：",
+  "{",
+  "  \\"summary\\":\\"一句话摘要\\",",
+  "  \\"overall\\":\\"2-4句话整体判断\\",",
+  "  \\"issues\\":[{\\"id\\":\\"I01\\",\\"severity\\":\\"high|medium|low\\",\\"category\\":\\"图号/图框|门窗一致性|跨图一致性|尺寸/标高|编号/索引|文字说明|未闭环标记|构件/空间|规范待核|其他\\",\\"location\\":\\"图号/页码/位置\\",\\"issue\\":\\"问题\\",\\"evidence\\":\\"证据\\",\\"why\\":\\"为什么值得看\\",\\"action\\":\\"复核动作\\",\\"evidenceSource\\":\\"pdf_text|mixed|visual|ai|reference\\",\\"deterministicIds\\":[\\"P001\\"],\\"confidence\\":0.0}],",
+  "  \\"crossSheetRisks\\":[{\\"id\\":\\"X01\\",\\"severity\\":\\"high|medium|low\\",\\"category\\":\\"跨图一致性\\",\\"location\\":\\"A-101 ↔ A-601\\",\\"issue\\":\\"风险\\",\\"evidence\\":\\"证据\\",\\"why\\":\\"影响\\",\\"action\\":\\"复核动作\\",\\"evidenceSource\\":\\"mixed|pdf_text|visual|ai|reference\\",\\"deterministicIds\\":[\\"P001\\"],\\"confidence\\":0.0}],",
+  "  \\"checklist\\":[\\"人工复核动作\\"],",
+  "  \\"limitations\\":[\\"分析局限\\"],",
+  "  \\"sheetSummary\\":[{\\"sheetId\\":\\"A-101\\",\\"page\\":1,\\"role\\":\\"plan|elevation|section|schedule|detail|notes|other\\",\\"note\\":\\"该页关键内容/风险\\"}]",
+  "}"
+].join("\\n");
+
+function validateReviewPayload(body){
+  if(!body||typeof body!=="object")return "请求体无效";
+  const d=body.drawing;
+  if(!d||!Array.isArray(d.pages)||!d.pages.length)return "缺少施工图页面";
+  if(d.pages.length>MAX_PAGES)return "施工图最多支持前 "+MAX_PAGES+" 页";
+  for(const p of d.pages)if(!p||!validImage(p.image))return "施工图页面格式无效";
+  if(String(body?.reference?.text||"").length>38000)return "参考资料文字过长";
+  const alerts=safeArray(body?.deterministic?.alerts);
+  if(alerts.length>100)return "程序硬检查结果过多";
+  const total=d.pages.reduce((n,p)=>n+dataUrlBytes(p.image),0);
+  if(total>34*1024*1024)return "预处理后的施工图图像超过 34MB";
+  return null;
+}
+
+function reviewEvidenceForPrompt(body){
+  const d=body?.deterministic||{};
   return {
-    projectName:"Agent Hong production regression",
-    notes:"仅按确定性文字证据校核。特别检查精确数值和 W03 跨图同步，不得用视觉覆盖程序证据。",
-    versionA:{
-      name:"Regression-A.pdf",sourcePages:3,
-      pages:[
-        page("A-101","SHEET A-101 | 23000 | 12000 | MEETING ROOM | STAIR CLR 1200 | W01 | W02 | W04"),
-        page("A-201","SHEET A-201 | SOUTH ELEVATION | W04 | D01 | W02 | W01"),
-        page("A-601","SHEET A-601 | DOOR WINDOW SCHEDULE | D01 | D02 | D03 | D04 | W01 | W02 | W04")
-      ]
-    },
-    versionB:{
-      name:"Regression-B.pdf",sourcePages:3,
-      pages:[
-        page("A-101","SHEET A-101 | 23800 | 12800 | CONFERENCE ROOM | STAIR CLR 1350 | W01 | W02 | W03 | W04"),
-        page("A-201","SHEET A-201 | SOUTH ELEVATION | W04 | D01 | W02 | W01"),
-        page("A-601","SHEET A-601 | DOOR WINDOW SCHEDULE | D01 | D02 | D03 | D04 | W01 | W02 | W04")
-      ]
-    },
-    deterministic:{
-      pagePairs:[
-        {pageA:0,pageB:0,sheetId:"A-101",method:"sheet-id"},
-        {pageA:1,pageB:1,sheetId:"A-201",method:"sheet-id"},
-        {pageA:2,pageB:2,sheetId:"A-601",method:"sheet-id"}
-      ],
-      textCoverage:{itemsA:60,itemsB:64,mode:"hybrid"},
-      textChanges:[
-        {id:"T001",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"23000",after:"23800",numeric:{before:23000,after:23800,delta:800},position:{x:.4,y:.2},matchConfidence:1},
-        {id:"T002",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"12000",after:"12800",numeric:{before:12000,after:12800,delta:800},position:{x:.3,y:.25},matchConfidence:.98},
-        {id:"T003",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"MEETING ROOM",after:"CONFERENCE ROOM",numeric:null,position:{x:.55,y:.45},matchConfidence:.91},
-        {id:"T004",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"STAIR CLR 1200",after:"STAIR CLR 1350",numeric:{before:1200,after:1350,delta:150},position:{x:.45,y:.6},matchConfidence:.92},
-        {id:"T005",sheetId:"A-101",pageA:1,pageB:1,type:"add",before:"",after:"W03",numeric:null,position:{x:.65,y:.77},matchConfidence:1}
-      ],
-      visualRegions:[]
-    }
+    textCoverage:d.textCoverage||{},
+    sheets:safeArray(d.sheets).slice(0,MAX_PAGES),
+    alerts:safeArray(d.alerts).slice(0,100),
+    indices:d.indices||{},
+    fullyLoaded:Boolean(d.fullyLoaded)
   };
 }
 
-async function handleRegression(env){
-  const body=regressionFixture();
+function buildReviewContent(body){
+  const content=[];
+  const evidence=reviewEvidenceForPrompt(body);
+  const referenceText=String(body?.reference?.text||"");
+  content.push({type:"text",text:
+    "项目："+(body.projectName||"未填写")+
+    "\\n重点关注："+(body.focus||"无")+
+    "\\n\\n程序硬检查 JSON：\\n"+JSON.stringify(evidence)+
+    "\\n\\n用户参考资料："+(referenceText?("\\n"+referenceText):"未提供。不得输出规范符合/违反结论。")
+  });
+  safeArray(body?.drawing?.pages).forEach((p,i)=>{
+    content.push({type:"text",text:
+      "施工图第 "+(i+1)+" 页｜图号 "+(p.sheetId||"未识别")+
+      "\\nPDF文字层摘要："+String(p.textDigest||"")+
+      (p.textDigestTruncated?"\\n[文字摘要已截断]":"")
+    });
+    content.push({type:"image_url",image_url:{url:p.image,detail:"default",max_long_side_pixel:1250}});
+  });
+  return content;
+}
+
+async function callReviewMiniMax(env,body){
+  if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\\/$/,"");
+  const model=env.MINIMAX_MODEL||"MiniMax-M3";
+  const resp=await fetch(base+"/chat/completions",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages:[{role:"system",content:REVIEW_SYSTEM_PROMPT},{role:"user",content:buildReviewContent(body)}],
+      temperature:.1,
+      max_completion_tokens:7000,
+      reasoning_split:true,
+      thinking:{type:"adaptive"}
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,600));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回了非 JSON 响应")}
+  let parsed;try{parsed=parseModelContent(envelope)}catch(e){throw new Error("预审结构化结果解析失败："+(e?.message||e))}
+  return {parsed,usage:envelope.usage||null,model};
+}
+
+function reviewSource(v,fallback="ai"){return ["pdf_text","mixed","visual","ai","reference"].includes(v)?v:fallback}
+
+function normalizeReviewIssue(x,i,prefix){
+  return {
+    id:String(x?.id||(prefix+String(i+1).padStart(2,"0"))),
+    severity:severity(x?.severity),
+    category:String(x?.category||"其他"),
+    location:String(x?.location||"位置待确认"),
+    issue:String(x?.issue||"需人工复核"),
+    evidence:String(x?.evidence||"证据不足，需人工复核"),
+    why:String(x?.why||"需人工复核"),
+    action:String(x?.action||"人工复核"),
+    evidenceSource:reviewSource(x?.evidenceSource,"ai"),
+    deterministicIds:safeArray(x?.deterministicIds).filter(v=>typeof v==="string").slice(0,12),
+    confidence:confidence(x?.confidence)
+  };
+}
+
+function normalizeReviewResult(parsed,body){
+  const hard=safeArray(body?.deterministic?.alerts).slice(0,100);
+  const issues=safeArray(parsed?.issues).map((x,i)=>normalizeReviewIssue(x,i,"I")).slice(0,60);
+  const cross=safeArray(parsed?.crossSheetRisks).map((x,i)=>normalizeReviewIssue(x,i,"X")).slice(0,40);
+  const highRisk=[...hard,...issues,...cross].filter(x=>x.severity==="high").length;
+  const mode=body?.deterministic?.textCoverage?.mode||"visual-only";
+  const limitations=safeArray(parsed?.limitations).map(String).slice(0,12);
+  if(body?.drawing?.sourcePages>MAX_PAGES)limitations.unshift("施工图原文件超过 "+MAX_PAGES+" 页，本次只读取前 "+MAX_PAGES+" 页，跨图结论不代表全套图纸。");
+  if(mode!=="hybrid")limitations.unshift("未检测到足够 PDF 文字层，本次图号、编号和文字检查主要依赖视觉，关键内容必须人工复核。");
+  if(!String(body?.reference?.text||"").trim())limitations.unshift("未提供院标/甲方要求/规范依据，本次不做规范符合性结论。");
+  return {
+    summary:String(parsed?.summary||"施工图预审完成"),
+    overall:String(parsed?.overall||"请查看程序硬检查、AI问题与跨图风险。"),
+    analysisMode:mode,
+    counts:{hard:hard.length,issues:issues.length,crossSheet:cross.length,highRisk},
+    hardAlerts:hard,
+    issues,
+    crossSheetRisks:cross,
+    checklist:safeArray(parsed?.checklist).map(String).slice(0,20),
+    limitations,
+    sheetSummary:safeArray(parsed?.sheetSummary).slice(0,MAX_PAGES)
+  };
+}
+
+async function handleReview(request,env){
+  const len=Number(request.headers.get("content-length")||"0");
+  if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
+  let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
+  const error=validateReviewPayload(body);if(error)return json({error},400);
   try{
-    const {parsed,usage,model}=await callMiniMax(env,body);
-    const result=normalizeModelResult(parsed,body);
-    const dump=JSON.stringify(result);
-    const checks={
-      exact800:dump.includes("23800")&&dump.includes("12800")&&!dump.includes("+500")&&!dump.includes("12500"),
-      stair1350:dump.includes("1350")&&!dump.includes("1300"),
-      w03ElevationRisk:result.syncRisks.some(x=>/W03/i.test(x.issue+x.evidence)&&/A-201|立面/i.test(x.location+x.issue+x.evidence)),
-      w03ScheduleRisk:result.syncRisks.some(x=>/W03/i.test(x.issue+x.evidence)&&/A-601|门窗表|SCHEDULE/i.test(x.location+x.issue+x.evidence))
-    };
-    return json({ok:Object.values(checks).every(Boolean),checks,result,usage,model});
-  }catch(e){
-    return json({ok:false,error:e?.message||"regression failed",stage:"production-regression"});
-  }
+    const {parsed,usage,model}=await callReviewMiniMax(env,body);
+    return json({ok:true,result:normalizeReviewResult(parsed,body),usage,model});
+  }catch(e){console.error("review_failed",e);return json({error:e?.message||"预审失败"},502)}
 }
 
 async function handleCompare(request,env){
@@ -294,9 +389,9 @@ export default {
     if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",modules:["version-diff","drawing-review"],model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
     if(url.pathname==="/api/__agent_hong_regression_1c7b"&&request.method==="GET")return handleRegression(env);
-    if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
+    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);\n    if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
   }
