@@ -48,7 +48,7 @@ jobs:
               process.stdin.on("end",()=>{
                 try{
                   const x=JSON.parse(s);
-                  const ok=x.ok&&x.configured&&x.engine==="agent-hong-v1.7"&&["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions","design-briefing"].every(m=>x.modules?.includes(m));
+                  const ok=x.ok&&x.configured&&x.engine==="agent-hong-v1.8"&&["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions","design-briefing"].every(m=>x.modules?.includes(m));
                   process.exit(ok?0:1);
                 }catch{process.exit(1)}
               });
@@ -64,7 +64,7 @@ jobs:
             process.stdin.on("data",d=>s+=d);
             process.stdin.on("end",()=>{
               const x=JSON.parse(s);
-              if(!x.ok || !x.configured || x.engine!=="agent-hong-v1.7") throw new Error("health not ready or wrong engine: "+x.engine);
+              if(!x.ok || !x.configured || x.engine!=="agent-hong-v1.8") throw new Error("health not ready or wrong engine: "+x.engine);
               for(const m of ["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions","design-briefing"]){
                 if(!x.modules?.includes(m)) throw new Error("missing module: "+m);
               }
@@ -87,3 +87,12 @@ jobs:
             fi
           done
           echo "Agent Hong module pages smoke passed"
+          for page in index.html version-diff.html drawing-review.html comment-check.html history-search.html reference-assistant.html geotech-conditions.html design-briefing.html; do
+            body="$(curl -fsS --retry 3 --retry-delay 3 --max-time 30 "https://zhanghong.fhkq.best/$page")"
+            printf '%s' "$body" | grep -q '/product-theme.css' || { echo "Product theme missing from $page"; exit 1; }
+          done
+          theme="$(curl -fsS --retry 3 --retry-delay 3 --max-time 30 https://zhanghong.fhkq.best/product-theme.css)"
+          printf '%s' "$theme" | grep -q -- '--cyan:' || { echo "Product theme asset not propagated"; exit 1; }
+          home="$(curl -fsS --retry 3 --retry-delay 3 --max-time 30 https://zhanghong.fhkq.best/)"
+          printf '%s' "$home" | grep -q '7 / 7 MODULES ONLINE' || { echo "Homepage product status not propagated"; exit 1; }
+          echo "Agent Hong product shell smoke passed"
