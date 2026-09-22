@@ -905,6 +905,127 @@ function normalizeHistoryResult(parsed,candidates){
 }
 
 
+
+const GEOTECH_KEYS=["site_class","seismic","groundwater","soil_layers","bearing_capacity","pile_conditions","liquefaction","corrosion","adverse_geology","excavation","dewatering","exploration"];
+const MAX_GEOTECH_CANDIDATES=36;
+
+const GEOTECH_SYSTEM_PROMPT=[
+  "你是 Agent Hong 的地勘报告设计条件整理引擎。你只能根据程序从地勘报告文字层抽取的 Gxxxx 候选证据工作，不得依靠常识或训练记忆补造报告内容。",
+  "",
+  "目标：把证据整理成建筑/结构设计前期可读的地勘条件表。不是替代岩土工程师做基础设计。",
+  "",
+  "强制规则：",
+  "1. conditions 必须覆盖指定的 12 个 key，每个 key 恰好一项。",
+  "2. found / needs_review 必须至少引用一个输入 candidates 中真实存在的 Gxxxx；没有有效引用必须 not_found。",
+  "3. 精确数字、单位、标高、埋深、承载力、孔深、桩参数只能来自 citations 所引用的原文，禁止估算、换算、推断或补全。",
+  "4. 不要把‘建议’改写成确定的设计值。例如报告说 recommended / 建议，应保留‘建议’属性。",
+  "5. 不得自行确定基础形式、桩长、桩径、基坑支护形式或降水方案；只能整理报告已明确写出的条件/建议，并指出设计需复核什么。",
+  "6. 报告对液化/腐蚀性/不良地质的判断必须忠实保留否定词和程度词。",
+  "7. 若同一条件在不同页有冲突、范围或不同工况，status=needs_review，并在 value 中保留差异。",
+  "8. 不得把地勘报告中的抗震参数扩展为建筑抗震合规结论。",
+  "9. 只输出严格 JSON，不要 Markdown。",
+  "",
+  "固定 key：site_class,seismic,groundwater,soil_layers,bearing_capacity,pile_conditions,liquefaction,corrosion,adverse_geology,excavation,dewatering,exploration",
+  "",
+  "输出：",
+  "{\"summary\":\"一句话\",\"overall\":\"2-4句话\",\"conditions\":[{\"key\":\"groundwater\",\"status\":\"found|needs_review|not_found\",\"value\":\"报告条件，精确数字必须来自引用证据\",\"designImplication\":\"设计阶段下一步应关注什么，不自行做专业决定\",\"citations\":[\"G证据ID\"],\"confidence\":0.0}],\"checklist\":[\"人工复核动作\"],\"limitations\":[\"分析边界\"]}"
+].join("\n");
+
+function validateGeotechPayload(body){
+  if(!body||typeof body!=="object")return "请求体无效";
+  const cs=safeArray(body?.candidates);
+  if(!cs.length)return "没有抽取到可用于整理的地勘文字证据";
+  if(cs.length>MAX_GEOTECH_CANDIDATES)return "地勘候选证据最多 "+MAX_GEOTECH_CANDIDATES+" 条";
+  const ids=new Set();
+  for(const x of cs){
+    const id=String(x?.id||"");if(!id)return "地勘证据缺少 ID";if(ids.has(id))return "地勘证据 ID 重复";ids.add(id);
+    if(!GEOTECH_KEYS.includes(String(x?.key||"")))return "地勘证据分类无效";
+    if(String(x?.text||"").length>3500)return "单条地勘证据过长";
+  }
+  return null;
+}
+
+async function callGeotechMiniMax(env,body){
+  if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,""),model=env.MINIMAX_MODEL||"MiniMax-M3";
+  const candidates=safeArray(body.candidates).map(x=>({
+    id:String(x.id),key:String(x.key),label:String(x.label||""),documentName:String(x.documentName||""),
+    pageNumber:Number(x.pageNumber||0),text:String(x.text||"").slice(0,3500),numbers:safeArray(x.numbers),depthRange:x.depthRange||null
+  }));
+  const user={
+    projectName:String(body?.projectName||""),
+    notes:String(body?.notes||""),
+    documents:safeArray(body?.documents),
+    deterministicCoverage:body?.coverage||{},
+    candidates
+  };
+  const resp=await fetch(base+"/chat/completions",{method:"POST",headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},body:JSON.stringify({
+    model,messages:[{role:"system",content:GEOTECH_SYSTEM_PROMPT},{role:"user",content:"地勘证据 JSON：\n"+JSON.stringify(user)}],
+    temperature:0,max_completion_tokens:7000,reasoning_split:true,thinking:{type:"adaptive"}
+  })});
+  const raw=await resp.text();if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,600));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回非 JSON 响应")}
+  let parsed;try{parsed=parseModelContent(envelope)}catch(e){throw new Error("地勘条件结构化结果解析失败："+(e?.message||e))}
+  return {parsed,usage:envelope.usage||null,model,candidates};
+}
+
+function numericTokens(text){
+  return (String(text||"").match(/-?\d+(?:\.\d+)?/g)||[]).map(x=>String(Number(x))).filter(x=>x!=="NaN");
+}
+function unsupportedNumbers(value,evs){
+  const output=uniqStrings(numericTokens(value));
+  if(!output.length)return [];
+  const evidence=new Set();
+  for(const e of evs)for(const n of numericTokens(e?.text||""))evidence.add(n);
+  return output.filter(n=>!evidence.has(n));
+}
+
+function normalizeGeotechResult(parsed,candidates,body){
+  const valid=new Map(candidates.map(x=>[String(x.id),x]));
+  const rawByKey=new Map(safeArray(parsed?.conditions).map(x=>[String(x?.key||""),x]));
+  const conditions=GEOTECH_KEYS.map(key=>{
+    const raw=rawByKey.get(key)||{};
+    const citations=uniqStrings(safeArray(raw?.citations).map(String).filter(id=>valid.has(id))).slice(0,10);
+    const evs=citations.map(id=>valid.get(id));
+    let status=citations.length&&["found","needs_review"].includes(raw?.status)?raw.status:(citations.length?"found":"not_found");
+    let value=status==="not_found"?"未在当前报告证据中找到":String(raw?.value||"需人工复核");
+    let implication=status==="not_found"?"补充地勘资料或人工复核原报告。":String(raw?.designImplication||"需人工复核");
+    const badNums=unsupportedNumbers(value,evs);
+    if(status!=="not_found"&&badNums.length){
+      status="needs_review";
+      implication+="；模型输出包含未在引用原文中找到的数字（"+badNums.join(", ")+"），该数字不得直接采用。";
+    }
+    return {
+      key,status,value,designImplication:implication,citations,
+      pages:uniqStrings(evs.map(e=>String(e.pageNumber))).map(Number).sort((a,b)=>a-b),
+      confidence:status==="not_found"?0:confidence(raw?.confidence),
+      unsupportedNumbers:badNums
+    };
+  });
+  const counts={found:0,needsReview:0,notFound:0};
+  for(const x of conditions){if(x.status==="found")counts.found++;else if(x.status==="needs_review")counts.needsReview++;else counts.notFound++}
+  const limitations=uniqStrings(safeArray(parsed?.limitations).map(String));
+  const docs=safeArray(body?.documents);
+  if(docs.some(d=>Number(d.sourcePages||0)>Number(d.scannedPages||0)))limitations.unshift("至少一个地勘文件超过前端扫描上限，未扫描页不在本次证据范围内。");
+  return {
+    summary:String(parsed?.summary||"地勘设计条件提取完成"),
+    overall:String(parsed?.overall||"请按条件表回看原报告并由岩土/结构专业确认。"),
+    counts,conditions,
+    checklist:uniqStrings(safeArray(parsed?.checklist).map(String)).slice(0,24),
+    limitations:uniqStrings(limitations).slice(0,16)
+  };
+}
+
+async function handleGeotechConditions(request,env){
+  const len=Number(request.headers.get("content-length")||"0");if(len>3*1024*1024)return json({error:"地勘条件请求过大"},413);
+  let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
+  const error=validateGeotechPayload(body);if(error)return json({error},400);
+  try{
+    const {parsed,usage,model,candidates}=await callGeotechMiniMax(env,body);
+    return json({ok:true,result:normalizeGeotechResult(parsed,candidates,body),usage,model});
+  }catch(e){console.error("geotech_conditions_failed",e);return json({error:e?.message||"地勘条件整理失败"},502)}
+}
+
 const MAX_REFERENCE_CANDIDATES=12;
 const REFERENCE_SYSTEM_PROMPT=[
   "你是 Agent Hong 的规范/院标依据解释器。你绝对不能依靠记忆回答规范要求，只能使用用户当前提供的候选证据。",
@@ -1013,7 +1134,8 @@ export default {
     if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.5",modules:["version-diff","drawing-review","comment-check","history-search","reference-assistant"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1","reference-assistant":"grounding-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.6",modules:["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1","reference-assistant":"grounding-v1","geotech-conditions":"conditions-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/geotech-conditions"&&request.method==="POST")return handleGeotechConditions(request,env);
     if(url.pathname==="/api/reference-answer"&&request.method==="POST")return handleReferenceAnswer(request,env);
     if(url.pathname==="/api/history-search"&&request.method==="POST")return handleHistorySearch(request,env);
     if(url.pathname==="/api/comment-check"&&request.method==="POST")return handleCommentCheck(request,env);
