@@ -25,6 +25,16 @@ function marks(text='', prefix){
   return uniq((t.match(re)||[]).map(x=>x.replace(/\s+/g,'').replace('.', '-')));
 }
 
+function scheduleMarks(text='',prefix){
+  const t=upper(text);
+  const rowRe=prefix==='W'
+    ? /\b(W\s*[-.]?\s*\d{1,4}[A-Z]?)\b\s+(?:WINDOW|窗)\b/g
+    : /\b(D\s*[-.]?\s*\d{1,4}[A-Z]?)\b\s+(?:DOOR|门)\b/g;
+  const rows=[];let m;
+  while((m=rowRe.exec(t))) rows.push(m[1].replace(/\s+/g,'').replace('.', '-'));
+  return rows.length?uniq(rows):marks(text,prefix);
+}
+
 export function referencedSheets(text=''){
   const t=upper(text);
   return uniq((t.match(/\b(?:A|AR|ARCH|S|ST|M|ME|E|EL|P|PL|L|C)[-. ]?\d{2,4}(?:\.\d+)?\b/g)||[])
@@ -120,8 +130,8 @@ export function deterministicReview(pages=[],sourcePages=pages.length){
 
   const schedulePages=normalized.filter(p=>p.role==='schedule');
   const planPages=normalized.filter(p=>p.role==='plan');
-  const scheduleWindows=uniq(schedulePages.flatMap(p=>p.windows));
-  const scheduleDoors=uniq(schedulePages.flatMap(p=>p.doors));
+  const scheduleWindows=uniq(schedulePages.flatMap(p=>scheduleMarks(p.text,'W')));
+  const scheduleDoors=uniq(schedulePages.flatMap(p=>scheduleMarks(p.text,'D')));
   const planWindows=uniq(planPages.flatMap(p=>p.windows));
   const planDoors=uniq(planPages.flatMap(p=>p.doors));
 
