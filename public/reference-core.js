@@ -75,7 +75,7 @@ export function chunkReferencePages(pages=[],meta={}){
       if(clause){
         push();
         current={
-          id:"E"+String(seq++).padStart(4,"0"),
+          id:String(meta.documentId||"doc")+":E"+String(seq++).padStart(4,"0"),
           libraryId:String(meta.libraryId||""),
           documentId:String(meta.documentId||""),
           documentName:String(meta.documentName||"document.pdf"),
@@ -90,7 +90,7 @@ export function chunkReferencePages(pages=[],meta={}){
       }
       if(!current){
         current={
-          id:"E"+String(seq++).padStart(4,"0"),
+          id:String(meta.documentId||"doc")+":E"+String(seq++).padStart(4,"0"),
           libraryId:String(meta.libraryId||""),
           documentId:String(meta.documentId||""),
           documentName:String(meta.documentName||"document.pdf"),
@@ -105,7 +105,7 @@ export function chunkReferencePages(pages=[],meta={}){
         if(headingLike(line)&&current.text.length>500){
           push();
           current={
-            id:"E"+String(seq++).padStart(4,"0"),
+            id:String(meta.documentId||"doc")+":E"+String(seq++).padStart(4,"0"),
             libraryId:String(meta.libraryId||""),
             documentId:String(meta.documentId||""),
             documentName:String(meta.documentName||"document.pdf"),
