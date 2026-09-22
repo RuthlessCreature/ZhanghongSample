@@ -34,7 +34,7 @@ export function referencedSheets(text=''){
 function rooms(text=''){
   const t=upper(text);
   const out=[];
-  const re=/\bROOM\s+(\d{2,4}[A-Z]?)\s*[:\-]?\s*([A-Z][A-Z0-9 &/()\-]{2,45}?)(?=\s{2,}|\s(?:ROOM|SHEET|REV|CHECK|VERIFY|TBD|PENDING|HOLD|DOOR|WINDOW|STAIR|REFERENCES)\b|$)/g;
+  const re=/\\bROOM\\s+(\\d{2,4}[A-Z]?)\\s*[:\\-]\\s*([A-Z][A-Z0-9 &/()\\-]{2,45}?)(?=\s{2,}|\s(?:ROOM|SHEET|REV|CHECK|VERIFY|TBD|PENDING|HOLD|DOOR|WINDOW|STAIR|REFERENCES)\b|$)/g;
   let m;
   while((m=re.exec(t))){
     let name=norm(m[2]).replace(/\s+(SHEET|REV|ISSUE)$/,'').trim();
@@ -154,18 +154,18 @@ export function deterministicReview(pages=[], sourcePages=pages.length){
   if(schedulePages.length){
     for(const m of planWindows.filter(x=>!scheduleWindows.includes(x))){
       const loc=planPages.filter(p=>p.windows.includes(m)).map(pageLocation);
-      alerts.push(alert(aid(),'high','门窗一致性',loc.join(', '),'平面出现窗号 '+m+'，但门窗表文字层未检出该编号','门窗表：'+schedulePages.map(pageLocation).join(', ')+'；需核查是否漏登记。',{},{mark:m,kind:'window',direction:'plan-to-schedule'}));
+      alerts.push(alert(aid(),'high','门窗一致性',loc.join(', '),'平面出现窗号 '+m+'，但门窗表文字层未检出该编号','门窗表：'+schedulePages.map(pageLocation).join(', ')+'；需核查是否漏登记。,'pdf_text',{mark:m,kind:'window',direction:'plan-to-schedule'}));
     }
     for(const m of planDoors.filter(x=>!scheduleDoors.includes(x))){
       const loc=planPages.filter(p=>p.doors.includes(m)).map(pageLocation);
-      alerts.push(alert(aid(),'high','门窗一致性',loc.join(', '),'平面出现门号 '+m+'，但门窗表文字层未检出该编号','门窗表：'+schedulePages.map(pageLocation).join(', ')+'；需核查是否漏登记。',{},{mark:m,kind:'door',direction:'plan-to-schedule'}));
+      alerts.push(alert(aid(),'high','门窗一致性',loc.join(', '),'平面出现门号 '+m+'，但门窗表文字层未检出该编号','门窗表：'+schedulePages.map(pageLocation).join(', ')+'；需核查是否漏登记。,'pdf_text',{mark:m,kind:'door',direction:'plan-to-schedule'}));
     }
     if(fullyLoaded){
       for(const m of scheduleWindows.filter(x=>!planWindows.includes(x))){
-        alerts.push(alert(aid(),'medium','门窗一致性',schedulePages.map(pageLocation).join(', '),'门窗表存在窗号 '+m+'，但当前已扫描平面未检出该编号','可能是表内孤立编号、其他未扫描楼层或图面文字提取遗漏；需人工确认。',{},{mark:m,kind:'window',direction:'schedule-to-plan'}));
+        alerts.push(alert(aid(),'medium','门窗一致性',schedulePages.map(pageLocation).join(', '),'门窗表存在窗号 '+m+'，但当前已扫描平面未检出该编号','可能是表内孤立编号、其他未扫描楼层或图面文字提取遗漏；需人工确认。,'pdf_text',{mark:m,kind:'window',direction:'schedule-to-plan'}));
       }
       for(const m of scheduleDoors.filter(x=>!planDoors.includes(x))){
-        alerts.push(alert(aid(),'medium','门窗一致性',schedulePages.map(pageLocation).join(', '),'门窗表存在门号 '+m+'，但当前已扫描平面未检出该编号','可能是表内孤立编号、其他未扫描楼层或图面文字提取遗漏；需人工确认。',{},{mark:m,kind:'door',direction:'schedule-to-plan'}));
+        alerts.push(alert(aid(),'medium','门窗一致性',schedulePages.map(pageLocation).join(', '),'门窗表存在门号 '+m+'，但当前已扫描平面未检出该编号','可能是表内孤立编号、其他未扫描楼层或图面文字提取遗漏；需人工确认。,'pdf_text',{mark:m,kind:'door',direction:'schedule-to-plan'}));
       }
     }
   }
