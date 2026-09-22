@@ -1182,7 +1182,7 @@ export default {
     if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.6.1",modules:["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1","reference-assistant":"grounding-v1","geotech-conditions":"conditions-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.6.2",modules:["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1","reference-assistant":"grounding-v1","geotech-conditions":"conditions-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
     if(url.pathname==="/api/geotech-conditions"&&request.method==="POST")return handleGeotechConditions(request,env);
     if(url.pathname==="/api/reference-answer"&&request.method==="POST")return handleReferenceAnswer(request,env);
     if(url.pathname==="/api/history-search"&&request.method==="POST")return handleHistorySearch(request,env);
