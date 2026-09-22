@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0d10">
+  <title>Agent Hong｜AI 施工图预审</title>
+  <meta name="description" content="Agent Hong AI施工图预审：程序硬检查 + MiniMax M3 工程预审。">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/review.css">
+</head>
+<body>
+  <div class="blueprint"></div>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">AH</span><span class="brand-name">Agent Hong</span></a>
+    <div class="status" id="serviceStatus"><span></span> 系统检查中</div>
+  </header>
+  <main>
+    <section class="hero review-hero">
+      <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 02</div>
+      <h1>施工图先让机器<br><em>狠狠干一遍预审。</em></h1>
+      <p>先用程序扫图号、门窗表、未闭环标记等确定性问题，再让 MiniMax M3 从完整图纸里找跨图不一致和明显风险。没有提供规范依据时，绝不冒充法定审图。</p>
+      <div class="engine-strip"><span>DETERMINISTIC PRECHECK</span><b>→</b><span>M3 DRAWING REVIEW</span><b>→</b><span>HUMAN VERIFY</span></div>
+    </section>
+
+    <section class="workspace" id="workspace">
+      <div class="workspace-head"><div><div class="step-tag">02 / DRAWING PRECHECK</div><h2>上传一套施工图</h2></div><span class="beta">PRECHECK V1</span></div>
+      <div class="meta-grid">
+        <label>项目名称（可选）<input id="projectName" maxlength="80" placeholder="例如：宜宾 XX 办公楼施工图"></label>
+        <label>重点关注 / 项目要求（可选）<input id="focus" maxlength="500" placeholder="例如：重点检查门窗、楼梯、房间名称和图纸前后一致性"></label>
+      </div>
+
+      <div class="review-upload-grid">
+        <div class="dropzone review-drop required" data-target="drawing" tabindex="0">
+          <input id="drawingFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
+          <div class="version-pill">REQUIRED</div><div class="drop-icon">02</div>
+          <h3>施工图 PDF / 图片</h3>
+          <p>拖入整套施工图，或点击选择</p>
+          <div class="file-info" id="drawingInfo">尚未选择文件</div>
+        </div>
+        <div class="dropzone review-drop optional" data-target="reference" tabindex="0">
+          <input id="referenceFile" type="file" accept="application/pdf,text/plain" hidden>
+          <div class="version-pill">OPTIONAL</div><div class="drop-icon ref">R</div>
+          <h3>院标 / 甲方要求 / 审查要点</h3>
+          <p>可选 PDF / TXT；只提取文字作为审查依据</p>
+          <div class="file-info" id="referenceInfo">未提供时不做规范合规结论</div>
+        </div>
+      </div>
+      <div class="limits">原始 PDF 不上传 · 当前读取施工图前 8 页 · 参考资料只读取文字 · 不保存项目文件</div>
+      <button class="primary" id="reviewBtn" disabled><span>开始施工图预审</span><b>↗</b></button>
+    </section>
+
+    <section class="progress hidden" id="progress">
+      <div class="scanner"></div>
+      <div class="progress-copy"><div class="eyebrow">AGENT HONG IS REVIEWING</div><h2 id="progressTitle">正在读取图纸…</h2><p id="progressText">先从 PDF 文字层建立图号、门窗和待确认项索引。</p></div>
+      <div class="progress-steps"><span class="active" id="p1">01 读取</span><span id="p2">02 硬检查</span><span id="p3">03 M3预审</span><span id="p4">04 报告</span></div>
+    </section>
+
+    <section class="results hidden" id="results">
+      <div class="result-head">
+        <div><div class="eyebrow">PRECHECK COMPLETE</div><h2>施工图预审报告</h2><div id="analysisMode" class="mode">—</div></div>
+        <div class="result-actions"><button class="secondary" id="jsonBtn">下载 JSON</button><button class="secondary" id="printBtn">打印 / PDF</button><button class="secondary" id="resetBtn">重新预审</button></div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-copy"><span>预审摘要</span><h3 id="summaryText">—</h3><p id="overallText">—</p><small id="runtimeMeta">—</small></div>
+        <div class="metrics four"><div><strong id="hardCount">0</strong><span>程序硬问题</span></div><div><strong id="issueCount">0</strong><span>AI预审问题</span></div><div><strong id="crossCount">0</strong><span>跨图风险</span></div><div><strong id="highCount">0</strong><span>高风险项</span></div></div>
+      </div>
+
+      <div class="result-block exact-block"><div class="block-title"><div><h3>程序硬检查</h3><p>来自 PDF 文字层和规则引擎；不是模型猜的。</p></div><span>DETERMINISTIC PRECHECK</span></div><div class="cards" id="hardCards"></div></div>
+      <div class="result-block"><div class="block-title"><div><h3>AI 预审问题</h3><p>工程语义、图纸表达和明显风险；最终仍需专业人员确认。</p></div><span>AI REVIEW</span></div><div class="cards" id="issueCards"></div></div>
+      <div class="result-block"><div class="block-title"><div><h3>跨图一致性风险</h3><p>平面、立面、剖面、门窗表、说明之间的疑似不一致。</p></div><span>CROSS-SHEET</span></div><div class="cards" id="crossCards"></div></div>
+      <div class="result-grid">
+        <div class="result-block"><div class="block-title"><h3>人工复核清单</h3><span>HUMAN CHECK</span></div><ol class="verify-list" id="checklist"></ol></div>
+        <div class="result-block"><div class="block-title"><h3>分析局限</h3><span>LIMITATIONS</span></div><ul class="verify-list" id="limitations"></ul></div>
+      </div>
+      <div class="disclaimer">Agent Hong 施工图预审用于发现明显问题和跨图不一致，不替代设计负责人、注册执业人员或法定施工图审查。没有提供明确规范/院标依据时，系统不得输出“符合/违反规范”的结论。</div>
+    </section>
+  </main>
+  <footer><span>AGENT HONG / MODULE 02</span><span>Precheck first. Human decides.</span></footer>
+  <script type="module" src="/review.js"></script>
+</body>
+</html>
