@@ -82,7 +82,10 @@ assert.equal(hits[0].sheetId,'A-521');
 hits=searchHistory(records,'2021 楼梯节点');
 assert.equal(hits[0].projectId,'p-retail');
 
-console.log(JSON.stringify({ok:true,records:records.length,projects:4,queriesPassed:7},null,2));
+hits=searchHistory(records,'MRI SHIELDING BUNKER');
+assert.equal(hits.length,0);
+
+console.log(JSON.stringify({ok:true,records:records.length,projects:4,queriesPassed:8},null,2));
 
 if(process.env.HISTORY_API_URL){
   const candidates=records.map(r=>({
