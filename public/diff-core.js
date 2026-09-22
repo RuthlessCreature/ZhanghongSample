@@ -201,13 +201,22 @@ export function diffTextItems(itemsA = [], itemsB = [], opts = {}) {
 
 export function detectSheetId(text = "") {
   const t = normalizeText(text).toUpperCase();
+  const token = "(?:A|AR|ARCH|S|ST|M|ME|E|EL|P|PL|L|C)[-. ]?\\d{2,4}(?:\\.\\d+)?";
+  const explicit = [
+    new RegExp("\\bSHEET(?:\\s+(?:NO|NUMBER))?\\s*[:#-]?\\s*(" + token + ")\\b", "g"),
+    new RegExp("(?:图号|圖號)\\s*[:：#-]?\\s*(" + token + ")\\b", "g")
+  ];
+  for (const re of explicit) {
+    const matches=[...t.matchAll(re)];
+    if (matches.length) return matches[matches.length - 1][1].replace(/\s+/g, "-");
+  }
   const patterns = [
-    /\b(?:A|AR|ARCH|S|ST|M|ME|E|EL|P|PL|L|C)[-. ]?\d{2,4}(?:\.\d+)?\b/g,
+    new RegExp("\\b" + token + "\\b", "g"),
     /\b[A-Z]{1,3}[-.]\d{2,4}\b/g
   ];
   for (const re of patterns) {
     const m = t.match(re);
-    if (m?.length) return m[m.length - 1].replace(/\s+/g, "");
+    if (m?.length) return m[m.length - 1].replace(/\s+/g, "-");
   }
   return null;
 }
