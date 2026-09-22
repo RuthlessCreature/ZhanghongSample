@@ -39,7 +39,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          health="$(curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/api/health)"
+          health=""
+          for i in 1 2 3 4 5 6; do
+            health="$(curl -fsS --retry 2 --retry-delay 2 --max-time 30 https://zhanghong.fhkq.best/api/health || true)"
+            if printf '%s' "$health" | node -e '
+              let s="";
+              process.stdin.on("data",d=>s+=d);
+              process.stdin.on("end",()=>{
+                try{
+                  const x=JSON.parse(s);
+                  const ok=x.ok&&x.configured&&["version-diff","drawing-review","comment-check","history-search"].every(m=>x.modules?.includes(m));
+                  process.exit(ok?0:1);
+                }catch{process.exit(1)}
+              });
+            '; then
+              break
+            fi
+            echo "Health not propagated yet; retry $i/6"
+            sleep 5
+          done
           printf '%s\n' "$health"
           printf '%s' "$health" | node -e '
             let s="";
