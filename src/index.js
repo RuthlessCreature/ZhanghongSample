@@ -412,6 +412,85 @@ function uniqStrings(items){
   return out;
 }
 
+
+function module02RegressionFixture(kind){
+  const ref=[
+    {id:"R001",page:null,text:"All door and window marks shown on floor plans shall be included in the Door & Window Schedule before IFC issue."},
+    {id:"R002",page:null,text:"Room 102 shall be named MEETING ROOM throughout the architectural drawing set."},
+    {id:"R003",page:null,text:"No CHECK, VERIFY, TBD, TBC, PENDING or HOLD note may remain in the final IFC drawing issue."},
+    {id:"R004",page:null,text:"The Drawing Index shall list every issued architectural sheet and shall not list non-issued sheets."},
+    {id:"R005",page:null,text:"Cross-sheet references shall resolve to an issued drawing in the same architectural set unless explicitly identified as another discipline."},
+    {id:"R006",page:null,text:"Window W03 shall appear consistently on the Level 1 Floor Plan, South Elevation and Door & Window Schedule."}
+  ];
+  const bad=kind==="bad";
+  const pages=bad?[
+    ["A-000","DRAWING INDEX A-000 A-101 A-201 A-301 A-501 A-601 A-502"],
+    ["A-101","LEVEL 1 FLOOR PLAN A-101 W01 W02 W03 W04 D01 D02 D03 D04 D05 ROOM 102: MEETING ROOM A-501 A-502 A-201 CHECK D05 WITH DOOR SCHEDULE VERIFY W03 IN ELEVATION"],
+    ["A-201","SOUTH ELEVATION A-201 W01 W02 W04 D01 TBD CONFIRM W03 ON SOUTH ELEVATION"],
+    ["A-301","BUILDING SECTION A-A A-301 VERIFY PARAPET BUILD-UP WITH DETAIL A-503 HOLD FIRESTOP DETAIL TO BE CONFIRMED"],
+    ["A-501","TOILET DETAIL A-501 ROOM 102: STORAGE PENDING FLOOR FINISH CODE"],
+    ["A-601","DOOR WINDOW SCHEDULE A-601 D01 DOOR D02 DOOR D03 DOOR D04 DOOR D09 DOOR W01 WINDOW W02 WINDOW W04 WINDOW VERIFY W03 AND D05 BEFORE IFC ISSUE"],
+    ["A-701","GENERAL NOTES A-701 ROOM 102 SHALL BE MEETING ROOM CHECK CLIENT TO CONFIRM WALL FINISH"]
+  ]:[
+    ["A-000","DRAWING INDEX A-000 A-101 A-201 A-301 A-501 A-601 A-701"],
+    ["A-101","LEVEL 1 FLOOR PLAN A-101 W01 W02 W03 W04 D01 D02 D03 D04 D05 ROOM 102: MEETING ROOM A-501 A-201"],
+    ["A-201","SOUTH ELEVATION A-201 W01 W02 W03 W04 D01 W03 COORDINATED WITH A-101 A-601"],
+    ["A-301","BUILDING SECTION A-A A-301 A-501 FIRESTOP DETAIL COORDINATED"],
+    ["A-501","TOILET DETAIL A-501 ROOM 103: TOILET FLOOR FINISH FL-01"],
+    ["A-601","DOOR WINDOW SCHEDULE A-601 D01 DOOR D02 DOOR D03 DOOR D04 DOOR D05 DOOR W01 WINDOW W02 WINDOW W03 WINDOW W04 WINDOW"],
+    ["A-701","GENERAL NOTES A-701 ROOM 102 SHALL BE MEETING ROOM WALL FINISH CONFIRMED WF-01"]
+  ];
+  const drawingPages=pages.map((p,i)=>({pageNumber:i+1,sheetId:p[0],textDigest:p[1],textDigestTruncated:false,textItemCount:30,image:"data:image/png;base64,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"}));
+  const hard=bad?[
+    {id:"P001",severity:"high",category:"图纸目录",location:"A-000",issue:"图纸目录列出当前套图中不存在的图号",evidence:"目录列出 A-502"},
+    {id:"P002",severity:"medium",category:"图纸目录",location:"A-000",issue:"当前套图存在未列入图纸目录的已发行图号",evidence:"未列入目录 A-701"},
+    {id:"P003",severity:"high",category:"门窗一致性",location:"A-101",issue:"平面出现窗号 W03，但门窗表未检出",evidence:"A-601 无 W03"},
+    {id:"P004",severity:"high",category:"门窗一致性",location:"A-101",issue:"平面出现门号 D05，但门窗表未检出",evidence:"A-601 无 D05"},
+    {id:"P005",severity:"medium",category:"门窗一致性",location:"A-601",issue:"门窗表存在孤立门号 D09",evidence:"平面未检出 D09"},
+    {id:"P006",severity:"high",category:"房间编号/名称",location:"A-101, A-501",issue:"同一房间编号 ROOM 102 出现多个名称",evidence:"MEETING ROOM ↔ STORAGE"},
+    {id:"P007",severity:"medium",category:"图纸引用",location:"A-301",issue:"检测到当前套图中未找到的图号引用",evidence:"A-503"},
+    {id:"P008",severity:"medium",category:"未闭环标记",location:"A-101",issue:"发现待确认类文字",evidence:"CHECK D05; VERIFY W03"},
+    {id:"P009",severity:"medium",category:"未闭环标记",location:"A-201",issue:"发现待确认类文字",evidence:"TBD W03"},
+    {id:"P010",severity:"medium",category:"未闭环标记",location:"A-301",issue:"发现待确认类文字",evidence:"VERIFY A-503; HOLD FIRESTOP"},
+    {id:"P011",severity:"medium",category:"未闭环标记",location:"A-501",issue:"发现待确认类文字",evidence:"PENDING FLOOR FINISH"},
+    {id:"P012",severity:"medium",category:"未闭环标记",location:"A-601",issue:"发现待确认类文字",evidence:"VERIFY W03 D05"},
+    {id:"P013",severity:"medium",category:"未闭环标记",location:"A-701",issue:"发现待确认类文字",evidence:"CHECK CLIENT"}
+  ]:[];
+  return {
+    projectName:"Agent Hong Module 02 "+kind+" sample",focus:"施工图预审双样品回归",
+    drawing:{name:kind+".pdf",type:"pdf",sourcePages:7,scannedPages:7,selectedPageNumbers:[1,2,3,4,5,6,7],selection:[],pages:drawingPages},
+    reference:{name:"ProjectRequirements.txt",mode:"text",truncated:false,pagesRead:1,chunks:ref,text:ref.map(x=>x.id+": "+x.text).join("\n")},
+    deterministic:{textCoverage:{mode:"hybrid",totalTextItems:210,pagesWithText:7,pagesWithSheetId:7,scannedPages:7,sourcePages:7},sheets:[],alerts:hard,indices:{},fullyLoaded:true}
+  };
+}
+async function runModule02Regression(env,kind){
+  const body=module02RegressionFixture(kind);
+  const {parsed,usage,model}=await callReviewMiniMax(env,body);
+  const result=normalizeReviewResult(parsed,body);
+  const dump=JSON.stringify(result);
+  const bad=kind==="bad";
+  const checks=bad?{
+    hardCount:result.hardAlerts.length>=10,
+    w03:/W03/.test(dump)&&/A-201|立面/.test(dump)&&/A-601|门窗表|SCHEDULE/i.test(dump),
+    room102:/ROOM 102/.test(dump)&&/MEETING ROOM/.test(dump)&&/STORAGE/.test(dump),
+    a503:/A-503/.test(dump),
+    unresolved:/CHECK|VERIFY|TBD|PENDING|HOLD/.test(dump),
+    refUsed:(result.counts?.referenceBased||0)>=2
+  }:{
+    noHardHigh:result.hardAlerts.filter(x=>x.severity==="high").length===0,
+    lowFalsePositive:(result.counts?.highRisk||0)===0,
+    noFakeConflict:!/STORAGE|A-503|D09/.test(dump)
+  };
+  return {ok:Object.values(checks).every(Boolean),kind,checks,result,usage,model};
+}
+async function handleModule02Regression(env){
+  try{
+    const bad=await runModule02Regression(env,"bad");
+    const clean=await runModule02Regression(env,"clean");
+    return json({ok:bad.ok&&clean.ok,bad,clean});
+  }catch(e){return json({ok:false,error:e?.message||"module02 regression failed"});}
+}
+
 async function handleReview(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
@@ -441,7 +520,7 @@ export default {
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"agent-hong-v1.2",modules:["version-diff","drawing-review"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
-    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
+    if(url.pathname==="/api/__module02_v2_regression"&&request.method==="GET")return handleModule02Regression(env);\n    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
