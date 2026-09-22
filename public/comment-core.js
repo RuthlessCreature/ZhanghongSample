@@ -4,7 +4,7 @@ const uniq = arr => [...new Set((arr||[]).filter(Boolean))];
 
 export function extractSheetRefs(text=''){
   const t=String(text||'').toUpperCase();
-  const re=/\b(?:A|AR|ARCH|S|ST|M|ME|E|EL|P|PL|L|C)[-. ]?\d{2,4}(?:\.\d+)?\b/g;
+  const re=/\b(?:A|AR|ARCH|S|ST|M|ME|E|EL|P|PL|L|C)[-. ]?\d{3,4}(?:\.\d+)?\b/g;
   return uniq((t.match(re)||[]).map(x=>x.replace(/\s+/g,'-').replace(/\.-/g,'.')));
 }
 
