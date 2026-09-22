@@ -7,11 +7,11 @@
 <section class="workspace"><div class="workspace-head"><div><div class="step-tag">06 / GEOTECH CONDITIONS</div><h2>上传地勘报告</h2></div><span class="beta">CONDITIONS V1</span></div>
 <div class="meta-grid"><label>项目名称<input id="projectName" maxlength="100" placeholder="例如：宜宾滨江办公楼"></label><label>关注重点<input id="notes" maxlength="300" placeholder="例如：重点看地下水、桩基和5.5m基坑"></label></div>
 <div class="dropzone geo-drop" id="geoDrop" tabindex="0"><input id="geoFiles" type="file" multiple accept="application/pdf,text/plain,.txt" hidden><div class="drop-icon">GEO</div><h3>地勘报告 PDF / TXT</h3><p>支持多文件；V1 优先数字 PDF，每文件最多扫描前 120 页文字层。</p><div class="file-info" id="geoInfo">尚未选择文件</div></div>
-<div class="limits">原始 PDF 不上传 · 只发送程序选出的证据文本给 M3 · 扫描件无文字层时需人工复核</div>
+<div class="limits">原始 PDF 不上传 · 只发送程序选出的证据文本用于条件整理 · 扫描件无文字层时需人工复核</div>
 <button class="primary" id="extractBtn" disabled><span>提取设计条件</span><b>↗</b></button>
 </section>
 
-<section class="progress hidden" id="progress"><div class="scanner"></div><div class="progress-copy"><div class="eyebrow">AGENT HONG IS READING GEOTECH</div><h2 id="progressTitle">正在读取 PDF 文字层…</h2><p id="progressText">先做确定性证据抽取，再让 M3 整理，不让模型猜数值。</p></div></section>
+<section class="progress hidden" id="progress"><div class="scanner"></div><div class="progress-copy"><div class="eyebrow">AGENT HONG IS READING GEOTECH</div><h2 id="progressTitle">正在读取 PDF 文字层…</h2><p id="progressText">先做确定性证据抽取，再进行条件整理；精确数值必须来自原文证据。</p></div></section>
 
 <section class="results hidden" id="results"><div class="result-head"><div><div class="eyebrow">GEOTECH CONDITION SET</div><h2>地勘 → 设计条件表</h2></div><div class="result-actions"><button class="secondary" id="jsonBtn">下载 JSON</button><button class="secondary" id="printBtn">打印 / PDF</button><button class="secondary" id="resetBtn">重新提取</button></div></div>
 <div class="geo-summary"><div><span>摘要</span><h3 id="summary">—</h3><p id="overall">—</p><small id="runtimeMeta">—</small></div><div class="coverage"><strong id="coveredCount">0/12</strong><span>条件覆盖</span></div></div>
