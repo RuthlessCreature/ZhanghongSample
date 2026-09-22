@@ -64,7 +64,10 @@ function replacementScore(a, b) {
   const proximity = clamp(1 - dist / 0.10);
   const lengthCompat = 1 - Math.min(1, Math.abs(normalizeText(a.str).length - normalizeText(b.str).length) / 24);
   if (sameNumericShell) return .62 * proximity + .28 * lengthCompat + .10;
-  if (sim < 0.12 && dist > 0.035) return -1;
+  if (na !== null && nb !== null && surroundingSignature(a.str) !== surroundingSignature(b.str)) return -1;
+  // Never pair unrelated nearby labels just because their coordinates overlap.
+  // Large revision-note rewrites should become add/remove evidence, not bogus replacements.
+  if (sim < 0.28) return -1;
   return .55 * proximity + .35 * sim + .10 * lengthCompat;
 }
 
@@ -81,6 +84,43 @@ function normalizeItem(item, index) {
     w: clamp(Number(item?.w ?? 0)),
     h: clamp(Number(item?.h ?? 0))
   };
+}
+
+
+export function mergeTextItems(items = [], opts = {}) {
+  const yTolerance = opts.yTolerance ?? 0.008;
+  const gapTolerance = opts.gapTolerance ?? 0.018;
+  const normalized = items.map(normalizeItem).filter(x => x.str).sort((a,b)=>(a.y-b.y)||(a.x-b.x));
+  const rows=[];
+  for(const item of normalized){
+    let row=null;
+    for(let i=rows.length-1;i>=0;i--){
+      const r=rows[i];
+      const tol=Math.max(yTolerance, Math.max(item.h||0,r.h||0)*0.65);
+      if(Math.abs(item.y-r.y)<=tol){row=r;break;}
+      if(item.y-r.y>tol*2) break;
+    }
+    if(!row){row={y:item.y,h:item.h,items:[]};rows.push(row);}
+    row.items.push(item);
+    row.y=(row.y*(row.items.length-1)+item.y)/row.items.length;
+    row.h=Math.max(row.h||0,item.h||0);
+  }
+  const merged=[];
+  for(const row of rows){
+    const list=row.items.sort((a,b)=>a.x-b.x);
+    let cur=null;
+    for(const item of list){
+      if(!cur){cur={...item};continue;}
+      const gap=item.x-(cur.x+cur.w);
+      if(gap<=gapTolerance && gap>=-0.01){
+        cur.str=(cur.str+' '+item.str).replace(/\s+/g,' ').trim();
+        const right=Math.max(cur.x+cur.w,item.x+item.w);
+        cur.w=right-cur.x; cur.h=Math.max(cur.h,item.h);
+      }else{merged.push(cur);cur={...item};}
+    }
+    if(cur)merged.push(cur);
+  }
+  return merged.map(({index,...x})=>x);
 }
 
 export function diffTextItems(itemsA = [], itemsB = [], opts = {}) {
@@ -125,6 +165,7 @@ export function diffTextItems(itemsA = [], itemsB = [], opts = {}) {
     if (!pairedA.has(p.aa._i) || !pairedB.has(p.bb._i)) continue;
     if (changes.some(x => x._ai === p.aa._i || x._bi === p.bb._i)) continue;
     const na = parseSingleNumber(p.aa.str), nb = parseSingleNumber(p.bb.str);
+    const numericCompatible = na !== null && nb !== null && surroundingSignature(p.aa.str) === surroundingSignature(p.bb.str);
     changes.push({
       _ai:p.aa._i,_bi:p.bb._i,
       type: "replace",
@@ -134,7 +175,7 @@ export function diffTextItems(itemsA = [], itemsB = [], opts = {}) {
       beforeBox: {x:p.aa.x,y:p.aa.y,w:p.aa.w,h:p.aa.h},
       afterBox: {x:p.bb.x,y:p.bb.y,w:p.bb.w,h:p.bb.h},
       matchConfidence: clamp(p.score),
-      numeric: na !== null && nb !== null ? {before:na, after:nb, delta:nb-na} : null
+      numeric: numericCompatible ? {before:na, after:nb, delta:nb-na} : null
     });
   }
 
