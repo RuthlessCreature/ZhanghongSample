@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Agent Hong Smoke Test</title>
+<pre id="out">RUNNING</pre>
+<script>
+const out=document.getElementById('out');
+function plan(v){
+  const c=document.createElement('canvas'); c.width=640;c.height=480;
+  const x=c.getContext('2d'); x.fillStyle='white';x.fillRect(0,0,640,480);
+  x.strokeStyle='black';x.lineWidth=8;x.strokeRect(60,60,520,360);
+  const wall=v==='A'?310:340;
+  x.beginPath();x.moveTo(wall,60);x.lineTo(wall,420);x.stroke();
+  x.beginPath();x.moveTo(60,250);x.lineTo(wall,250);x.stroke();
+  x.fillStyle='white';x.fillRect(wall-6,178,12,56);
+  x.fillStyle='black';x.font='22px sans-serif';
+  x.fillText('ROOM 101',105,130);
+  x.fillText(v==='A'?'ROOM 102':'MEETING 102',385,130);
+  x.fillText('ROOM 103',105,330);x.fillText('ROOM 104',385,330);
+  x.fillStyle='red';x.font='18px sans-serif';x.fillText(v==='A'?'5200':'5500',285,42);
+  if(v==='B'){x.fillStyle='blue';x.fillRect(410,410,100,5);x.fillStyle='red';x.fillText('NEW WINDOW',400,390);}
+  return c.toDataURL('image/png');
+}
+(async()=>{
+ try{
+  const r=await fetch('/api/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+   projectName:'Agent Hong smoke test',
+   notes:'比较两个简单平面示意图，识别右侧房间名称、中央墙位置、尺寸文字和新增窗的变化。',
+   versionA:{name:'A.png',pages:[plan('A')]},
+   versionB:{name:'B.png',pages:[plan('B')]}
+  })});
+  const t=await r.text();
+  out.textContent='HTTP '+r.status+'\n'+t;
+  document.title=r.ok?'SMOKE PASS':'SMOKE FAIL';
+ }catch(e){out.textContent='ERROR '+e.stack;document.title='SMOKE FAIL'}
+})();
+</script>
