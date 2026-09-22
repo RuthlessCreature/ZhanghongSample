@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0d10">
+<title>Agent Hong｜设计交底生成</title>
+<meta name="description" content="Agent Hong 设计交底生成：图纸证据提取 + 带出处交底稿。">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/design-briefing.css">
+</head>
+<body>
+<div class="blueprint"></div>
+<header class="topbar">
+  <a class="brand" href="/"><span class="brand-mark">AH</span><span class="brand-name">Agent Hong</span></a>
+  <div class="status" id="serviceStatus"><span></span> 系统检查中</div>
+</header>
+
+<main>
+<section class="hero briefing-hero">
+  <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 07</div>
+  <h1>交底别靠临场发挥。<br><em>把图纸里真正该说的先拎出来。</em></h1>
+  <p>上传施工图和项目要求，Agent Hong 先从数字 PDF 文字层抽出图号、房间、尺寸、门窗、接口和未决事项，再由 MiniMax M3 组织成可直接用于设计交底会的结构化交底稿。关键事项必须带图号、页码和原文证据。</p>
+  <div class="engine-strip"><span>DRAWING EVIDENCE</span><b>→</b><span>PROJECT REQUIREMENTS</span><b>→</b><span>M3 BRIEFING</span><b>→</b><span>CITED HANDOVER</span></div>
+</section>
+
+<section class="workspace">
+  <div class="workspace-head"><div><div class="step-tag">07 / DESIGN BRIEFING</div><h2>生成设计交底稿</h2></div><span class="beta">BRIEFING V1</span></div>
+
+  <div class="meta-grid">
+    <label>项目名称<input id="projectName" maxlength="100" placeholder="例如：宜宾滨江办公楼"></label>
+    <label>交底对象<select id="audience"><option>施工单位 / 项目部</option><option>甲方 / 业主</option><option>设计院内部</option><option>多专业协调会</option></select></label>
+  </div>
+  <label class="wide-label">交底重点（可选）<input id="notes" maxlength="400" placeholder="例如：重点讲首层功能、W03立面协调、楼梯净宽、消防封堵和机电竖井接口"></label>
+
+  <div class="brief-upload-grid">
+    <div class="dropzone brief-drop" id="drawingDrop" tabindex="0">
+      <input id="drawingFiles" type="file" multiple accept="application/pdf" hidden>
+      <div class="version-pill">DRAWINGS</div><div class="drop-icon">D</div>
+      <h3>施工图 PDF</h3>
+      <p>可多文件；建筑平面、立面、剖面、门窗表、详图均可。</p>
+      <div class="file-info" id="drawingInfo">尚未选择文件</div>
+    </div>
+    <div class="dropzone brief-drop secondary-drop" id="supportDrop" tabindex="0">
+      <input id="supportFiles" type="file" multiple accept="application/pdf,text/plain,.txt" hidden>
+      <div class="version-pill">SUPPORT</div><div class="drop-icon">R</div>
+      <h3>补充资料（可选）</h3>
+      <p>项目要求 / 甲方要求 / 设计说明 / 交底前确认事项，PDF / TXT。</p>
+      <div class="file-info" id="supportInfo">未添加补充资料</div>
+    </div>
+  </div>
+
+  <div class="limits">原始文件不上传 · 每文件最多扫描前 80 页文字层 · 发送给 M3 的仅是程序筛选后的 Dxxxx 文字证据</div>
+  <button class="primary" id="generateBtn" disabled><span>生成设计交底</span><b>↗</b></button>
+</section>
+
+<section class="progress hidden" id="progress">
+  <div class="scanner"></div>
+  <div class="progress-copy"><div class="eyebrow">AGENT HONG IS PREPARING BRIEFING</div><h2 id="progressTitle">正在读取施工图…</h2><p id="progressText">先生成可追溯的 Dxxxx 证据，再组织交底，不从模型记忆补设计决定。</p></div>
+</section>
+
+<section class="results hidden" id="results">
+  <div class="result-head">
+    <div><div class="eyebrow">DESIGN BRIEFING READY</div><h2>设计交底稿</h2></div>
+    <div class="result-actions"><button class="secondary" id="jsonBtn">下载 JSON</button><button class="secondary" id="printBtn">打印 / PDF</button><button class="secondary" id="resetBtn">重新生成</button></div>
+  </div>
+
+  <div class="brief-summary">
+    <div><span>交底摘要</span><h3 id="summary">—</h3><p id="overall">—</p><small id="runtimeMeta">—</small></div>
+    <div class="readiness"><strong id="readiness">0%</strong><span>证据覆盖</span></div>
+  </div>
+
+  <div class="section-grid" id="sectionGrid"></div>
+
+  <div class="result-block">
+    <div class="block-title"><div><h3>交底正文</h3><p>每一条关键事项必须能回到 Dxxxx 原文证据；无依据内容不进入正式交底。</p></div><span>BRIEFING PACK</span></div>
+    <div id="briefingSections" class="briefing-sections"></div>
+  </div>
+
+  <div class="result-block">
+    <div class="block-title"><div><h3>交底前必须关闭 / 确认</h3><p>CHECK / VERIFY / TBD / HOLD / PENDING 等未决事项由程序硬抓，不允许在交底生成时被“润色掉”。</p></div><span>OPEN ITEMS</span></div>
+    <div id="openItems" class="open-list"></div>
+  </div>
+
+  <div class="result-block">
+    <div class="block-title"><div><h3>原文证据索引</h3><p>用于交底会现场追图和复核。</p></div><span>EVIDENCE INDEX</span></div>
+    <div id="evidenceList" class="brief-evidence-list"></div>
+  </div>
+
+  <div class="result-grid">
+    <div class="result-block"><div class="block-title"><h3>会议建议议程</h3><span>AGENDA</span></div><ol id="agenda" class="verify-list"></ol></div>
+    <div class="result-block"><div class="block-title"><h3>人工复核与局限</h3><span>LIMITATIONS</span></div><ul id="limitations" class="verify-list"></ul></div>
+  </div>
+
+  <div class="disclaimer">Agent Hong 07 用于辅助准备设计交底材料，不替代设计负责人、专业负责人或现场正式技术交底。系统不得新增图纸中不存在的设计决定；涉及施工做法、尺寸、材料和专业接口必须以正式图纸、变更文件及人工确认为准。</div>
+</section>
+</main>
+
+<footer><span>AGENT HONG / MODULE 07</span><span>Brief only what the evidence supports.</span></footer>
+<script type="module" src="/design-briefing.js"></script>
+</body>
+</html>

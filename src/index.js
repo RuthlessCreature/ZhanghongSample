@@ -906,6 +906,225 @@ function normalizeHistoryResult(parsed,candidates){
 
 
 
+
+const BRIEFING_KEYS=["scope","key_design","dimensions_levels","rooms_functions","doors_windows_facade","circulation_access","materials_details","coordination_interfaces","open_items"];
+const MAX_BRIEFING_CANDIDATES=42;
+
+const BRIEFING_SYSTEM_PROMPT=[
+  "你是 Agent Hong 的建筑设计交底生成引擎。你的工作是把施工图和项目补充资料中的证据组织成一份可用于设计交底会的结构化交底稿。",
+  "",
+  "你不是设计负责人，不得新增图纸或项目资料里不存在的设计决定。",
+  "",
+  "你会收到 Dxxxx 候选证据，每条包含 category、documentName、sourceType、sheetId、pageNumber、text。",
+  "",
+  "强制规则：",
+  "1. sections 必须覆盖固定 9 个 key，每个 key 恰好一项：scope,key_design,dimensions_levels,rooms_functions,doors_windows_facade,circulation_access,materials_details,coordination_interfaces,open_items。",
+  "2. 每一个正式交底 item 必须至少引用一个输入 candidates 中真实存在的 Dxxxx。没有引用就不要输出这个 item。",
+  "3. 精确尺寸、标高、门窗编号、房间号、材料编号等只能来自被引用证据，不得推测。",
+  "4. sourceType=requirement 的内容必须说明是项目/甲方/补充要求，不得伪装成施工图已经表达的事实。",
+  "5. 若图纸与补充要求冲突，status=needs_review，明确列出冲突证据，禁止自行选择哪个正确。",
+  "6. open_items 中 CHECK / VERIFY / TBD / TBC / HOLD / PENDING / 待确认 等必须保留为未决事项，不得在交底稿中默认已解决。",
+  "7. 对专业接口，只能描述证据中明确出现的建筑↔结构/机电/门窗表/立面/剖面等协调关系，不得创造不存在的接口。",
+  "8. 不做法规/规范合规结论；可说‘需按适用规范及正式图纸复核’，但不得编造规范条文。",
+  "9. 交底语言应简洁、工程化，优先说明‘是什么、在哪里、现场/各专业要做什么、还缺什么确认’。",
+  "10. 只输出严格 JSON，不要 Markdown。",
+  "",
+  "输出 JSON：",
+  "{",
+  "  \"summary\":\"一句话交底摘要\",",
+  "  \"overall\":\"2-4句话，指出最重要的交底重点和未决风险\",",
+  "  \"sections\":[{",
+  "    \"key\":\"scope\",",
+  "    \"status\":\"ready|needs_review|not_found\",",
+  "    \"summary\":\"本节摘要\",",
+  "    \"items\":[{",
+  "      \"title\":\"交底标题\",",
+  "      \"message\":\"交底内容\",",
+  "      \"action\":\"施工/设计/协调下一步动作\",",
+  "      \"priority\":\"high|medium|low\",",
+  "      \"citations\":[\"Dxxxx\"]",
+  "    }]",
+  "  }],",
+  "  \"agenda\":[\"建议会议议程\"],",
+  "  \"limitations\":[\"分析局限\"]",
+  "}"
+].join("\n");
+
+function validateBriefingPayload(body){
+  if(!body||typeof body!=="object")return "请求体无效";
+  const candidates=safeArray(body?.candidates);
+  if(!candidates.length)return "没有抽取到可用于设计交底的文字证据";
+  if(candidates.length>MAX_BRIEFING_CANDIDATES)return "交底候选证据最多 "+MAX_BRIEFING_CANDIDATES+" 条";
+  const ids=new Set();
+  for(const x of candidates){
+    const id=String(x?.id||"");
+    if(!id)return "交底证据缺少 ID";
+    if(ids.has(id))return "交底证据 ID 重复";
+    ids.add(id);
+    if(!BRIEFING_KEYS.includes(String(x?.category||"")))return "交底证据分类无效";
+    if(String(x?.text||"").length>3000)return "单条交底证据过长";
+  }
+  return null;
+}
+
+async function repairBriefingJson(env,model,broken){
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
+  const resp=await fetch(base+"/chat/completions",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages:[
+        {role:"system",content:"你是 JSON 修复器。输入本应为严格 JSON 的设计交底结果，但可能存在漏逗号、未转义引号或代码围栏。只修复 JSON 语法，不改变任何字段值、引用、优先级、状态、数值或语义。只输出一个严格 JSON 对象。"},
+        {role:"user",content:String(broken||"").slice(0,30000)}
+      ],
+      temperature:0,
+      max_completion_tokens:6500
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error("MiniMax briefing JSON repair API "+resp.status+": "+raw.slice(0,500));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax briefing JSON repair 返回非 JSON 响应")}
+  return {parsed:parseModelContent(envelope),usage:envelope.usage||null};
+}
+
+async function callBriefingMiniMax(env,body){
+  if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,""),model=env.MINIMAX_MODEL||"MiniMax-M3";
+  const candidates=safeArray(body.candidates).map(x=>({
+    id:String(x.id),category:String(x.category),documentName:String(x.documentName||""),
+    sourceType:String(x.sourceType||"drawing"),sheetId:x.sheetId?String(x.sheetId):null,
+    sheetTitle:String(x.sheetTitle||""),pageNumber:Number(x.pageNumber||0),
+    text:String(x.text||"").slice(0,3000),numbers:safeArray(x.numbers),marks:safeArray(x.marks),rooms:safeArray(x.rooms)
+  }));
+  const user={
+    projectName:String(body?.projectName||""),
+    audience:String(body?.audience||""),
+    notes:String(body?.notes||""),
+    documents:safeArray(body?.documents),
+    deterministicCoverage:body?.coverage||{},
+    candidates
+  };
+  const resp=await fetch(base+"/chat/completions",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages:[{role:"system",content:BRIEFING_SYSTEM_PROMPT},{role:"user",content:"设计交底证据 JSON：\n"+JSON.stringify(user)}],
+      temperature:.05,
+      max_completion_tokens:7500,
+      reasoning_split:true,
+      thinking:{type:"adaptive"}
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,600));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回非 JSON 响应")}
+  try{
+    return {parsed:parseModelContent(envelope),usage:envelope.usage||null,model,candidates,repaired:false};
+  }catch(firstError){
+    const broken=modelContentAsText(envelope);
+    if(!broken)throw new Error("设计交底结构化结果解析失败："+(firstError?.message||firstError));
+    try{
+      const repaired=await repairBriefingJson(env,model,broken);
+      return {parsed:repaired.parsed,usage:mergeUsage(envelope.usage||null,repaired.usage||null),model,candidates,repaired:true};
+    }catch(repairError){
+      throw new Error("设计交底结构化结果解析失败："+(firstError?.message||firstError)+"；自动 JSON 修复也失败："+(repairError?.message||repairError));
+    }
+  }
+}
+
+function briefingNumberTokens(text){
+  return (String(text||"").match(/-?\d+(?:\.\d+)?\s*(?:MM|CM|M|KPA|MPA|KN|%)/gi)||[]).map(x=>x.replace(/\s+/g,"").toUpperCase());
+}
+
+function normalizeBriefingResult(parsed,candidates,body){
+  const valid=new Map(candidates.map(x=>[String(x.id),x]));
+  const rawByKey=new Map(safeArray(parsed?.sections).map(x=>[String(x?.key||""),x]));
+  const usedOpen=new Set();
+  const sections=BRIEFING_KEYS.map(key=>{
+    const raw=rawByKey.get(key)||{},items=[];
+    let sectionNeedsReview=raw?.status==="needs_review";
+    for(const item of safeArray(raw?.items)){
+      const citations=uniqStrings(safeArray(item?.citations).map(String).filter(id=>valid.has(id)&&String(valid.get(id)?.category||"")===key)).slice(0,12);
+      if(!citations.length)continue;
+      const evs=citations.map(id=>valid.get(id));
+      const evidenceText=evs.map(e=>String(e.text||"").toUpperCase()).join(" | ");
+      const unsupported=briefingNumberTokens(String(item?.message||"")+" "+String(item?.action||"")).filter(tok=>!evidenceText.replace(/\s+/g,"").includes(tok));
+      if(unsupported.length)sectionNeedsReview=true;
+      if(key==="open_items")for(const id of citations)usedOpen.add(id);
+      items.push({
+        title:String(item?.title||"交底事项"),
+        message:String(item?.message||""),
+        action:String(item?.action||"人工复核并按正式图纸执行")+(unsupported.length?"；含未被引用原文直接支持的数值 "+unsupported.join(", ")+"，不得直接采用。":""),
+        priority:["high","medium","low"].includes(item?.priority)?item.priority:"medium",
+        citations,
+        sheets:uniqStrings(evs.map(e=>String(e.sheetId||"")).filter(Boolean)).slice(0,12),
+        pages:uniqStrings(evs.map(e=>String(e.pageNumber))).map(Number).sort((a,b)=>a-b),
+        unsupportedNumbers:unsupported
+      });
+    }
+
+    if(key==="open_items"){
+      for(const e of candidates.filter(x=>x.category==="open_items")){
+        if(usedOpen.has(e.id))continue;
+        items.push({
+          title:"未决事项需在交底前明确",
+          message:String(e.text||""),
+          action:"明确责任人、关闭条件和正式处理结果；未关闭前不得在交底稿中视为已解决。",
+          priority:"high",
+          citations:[e.id],
+          sheets:e.sheetId?[e.sheetId]:[],
+          pages:[Number(e.pageNumber||0)].filter(Boolean),
+          unsupportedNumbers:[]
+        });
+        usedOpen.add(e.id);
+      }
+    }
+
+    const status=items.length?(sectionNeedsReview?"needs_review":(raw?.status==="needs_review"?"needs_review":"ready")):"not_found";
+    return {
+      key,status,
+      summary:items.length?String(raw?.summary||""): "当前证据中未找到可形成该部分交底的内容。",
+      items
+    };
+  });
+
+  const openItems=sections.find(x=>x.key==="open_items")?.items||[];
+  const counts={ready:0,needsReview:0,notFound:0,items:0,openItems:openItems.length};
+  for(const s of sections){
+    if(s.status==="ready")counts.ready++;
+    else if(s.status==="needs_review")counts.needsReview++;
+    else counts.notFound++;
+    counts.items+=s.items.length;
+  }
+
+  const limitations=uniqStrings(safeArray(parsed?.limitations).map(String));
+  const docs=safeArray(body?.documents);
+  if(docs.some(d=>Number(d.sourcePages||0)>Number(d.scannedPages||0)))limitations.unshift("至少一个文件超过前端扫描范围，未扫描页不在本次交底证据中。");
+  if(!candidates.some(x=>x.sourceType!=="drawing"))limitations.push("本次未上传项目/甲方补充要求，交底稿仅基于施工图文字证据。");
+  limitations.push("正式设计交底仍须由设计负责人/专业负责人结合正式图纸、变更文件和现场条件确认。");
+
+  return {
+    summary:String(parsed?.summary||"设计交底证据整理完成"),
+    overall:String(parsed?.overall||"请优先核对专业接口与未决事项，并按正式图纸完成交底。"),
+    counts,sections,openItems,
+    agenda:uniqStrings(safeArray(parsed?.agenda).map(String)).slice(0,16),
+    limitations:uniqStrings(limitations).slice(0,16)
+  };
+}
+
+async function handleDesignBriefing(request,env){
+  const len=Number(request.headers.get("content-length")||"0");
+  if(len>4*1024*1024)return json({error:"设计交底请求过大"},413);
+  let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
+  const error=validateBriefingPayload(body);if(error)return json({error},400);
+  try{
+    const {parsed,usage,model,candidates,repaired}=await callBriefingMiniMax(env,body);
+    return json({ok:true,result:normalizeBriefingResult(parsed,candidates,body),usage,model,structuredRepair:Boolean(repaired)});
+  }catch(e){console.error("design_briefing_failed",e);return json({error:e?.message||"设计交底生成失败"},502)}
+}
+
 const GEOTECH_KEYS=["site_class","seismic","groundwater","soil_layers","bearing_capacity","pile_conditions","liquefaction","corrosion","adverse_geology","excavation","dewatering","exploration"];
 const MAX_GEOTECH_CANDIDATES=36;
 
@@ -1182,7 +1401,8 @@ export default {
     if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.6.2",modules:["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1","reference-assistant":"grounding-v1","geotech-conditions":"conditions-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.7",modules:["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions","design-briefing"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1","reference-assistant":"grounding-v1","geotech-conditions":"conditions-v1","design-briefing":"briefing-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/design-briefing"&&request.method==="POST")return handleDesignBriefing(request,env);
     if(url.pathname==="/api/geotech-conditions"&&request.method==="POST")return handleGeotechConditions(request,env);
     if(url.pathname==="/api/reference-answer"&&request.method==="POST")return handleReferenceAnswer(request,env);
     if(url.pathname==="/api/history-search"&&request.method==="POST")return handleHistorySearch(request,env);
