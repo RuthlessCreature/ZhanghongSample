@@ -114,6 +114,15 @@ jobs:
             sleep 5
           done
           [ "$theme_ok" = "yes" ] || { echo "Product theme asset not propagated"; exit 1; }
-          home="$(curl -fsSL --retry 3 --retry-delay 3 --max-time 30 https://zhanghong.fhkq.best/)"
-          printf '%s' "$home" | grep -q '7 / 7 MODULES ONLINE' || { echo "Homepage product status not propagated"; exit 1; }
+          home_ok=""
+          for i in 1 2 3 4 5 6; do
+            home="$(curl -fsSL --max-time 30 https://zhanghong.fhkq.best/ || true)"
+            if printf '%s' "$home" | grep -q '7 / 7 MODULES ONLINE'; then
+              home_ok="yes"
+              break
+            fi
+            echo "Homepage product status not propagated; retry $i/6"
+            sleep 5
+          done
+          [ "$home_ok" = "yes" ] || { echo "Homepage product status not propagated"; exit 1; }
           echo "Agent Hong product shell smoke passed"
