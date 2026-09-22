@@ -48,9 +48,12 @@ export function extractDepthRange(text=""){
 export function geotechEvidencePolarity(line=""){
   const s=upper(line);
   const absent=[
+    /\b(?:IS|ARE|WAS|WERE)\s+NOT\s+(?:PROVIDED|AVAILABLE|INCLUDED|GIVEN|SPECIFIED)\b/,
     /\bNOT\s+(?:PROVIDED|AVAILABLE|INCLUDED|GIVEN|SPECIFIED)\b/,
     /\bDOES\s+NOT\s+PROVIDE\b/,
-    /\bNO\s+[^.]{0,80}\b(?:RECOMMENDATION|PARAMETER|DATA|INFORMATION)\b[^.]{0,30}\b(?:IS|ARE|WAS|WERE)?\s*(?:PROVIDED|AVAILABLE|GIVEN)?\b/,
+    /\bDO\s+NOT\s+PROVIDE\b/,
+    /\bNO\s+[^.]{0,100}\s+(?:IS|ARE|WAS|WERE)\s+(?:PROVIDED|AVAILABLE|GIVEN|INCLUDED|SPECIFIED)\b/,
+    /\bNO\s+(?:PILE|FOUNDATION|SEISMIC|SITE|GROUNDWATER|BEARING|EXCAVATION)[^.]{0,80}\b(?:RECOMMENDATION|PARAMETER|DATA|INFORMATION)\b/,
     /未提供|未给出|未包含|暂无.{0,20}(?:资料|参数|建议)|无.{0,20}(?:建议|参数|资料)/
   ];
   return absent.some(re=>re.test(s))?"absent":"positive";
