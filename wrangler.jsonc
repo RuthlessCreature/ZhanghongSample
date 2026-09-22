@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agent-hong",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-22",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "routes": [
+    {
+      "pattern": "zhanghong.fhkq.best",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "MINIMAX_API_BASE": "https://api.minimax.io/v1",
+    "MINIMAX_MODEL": "MiniMax-M3"
+  }
+}
