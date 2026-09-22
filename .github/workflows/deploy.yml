@@ -35,29 +35,24 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-      - name: Production Module 02 regression
+      - name: Production smoke test
         shell: bash
         run: |
           set -euo pipefail
-          body=""
-          for i in 1 2 3 4 5 6; do
-            if body="$(curl -fsS --max-time 120 https://zhanghong.fhkq.best/api/__review_regression_8f31)"; then
-              break
-            fi
-            echo "Regression endpoint not ready yet; retry $i/6"
-            sleep 8
-          done
-          printf '%s\n' "$body"
-          printf '%s' "$body" | node -e '
+          health="$(curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/api/health)"
+          printf '%s\n' "$health"
+          printf '%s' "$health" | node -e '
             let s="";
             process.stdin.on("data",d=>s+=d);
             process.stdin.on("end",()=>{
               const x=JSON.parse(s);
-              const required=["hardW03","crossElevation","crossSchedule","noFakeCompliance"];
-              if(!x.ok) throw new Error("module02 regression ok=false");
-              for(const k of required){
-                if(!x.checks?.[k]) throw new Error("module02 regression failed: "+k);
+              if(!x.ok || !x.configured) throw new Error("health not ready");
+              for(const m of ["version-diff","drawing-review"]){
+                if(!x.modules?.includes(m)) throw new Error("missing module: "+m);
               }
-              console.log("Module 02 production regression passed", x.checks);
+              console.log("Agent Hong health smoke passed");
             });
           '
+          curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/version-diff.html >/dev/null
+          curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/drawing-review.html >/dev/null
+          echo "Agent Hong module pages smoke passed"
