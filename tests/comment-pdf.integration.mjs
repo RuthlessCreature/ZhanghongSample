@@ -58,7 +58,8 @@ const commentsPdf=await makePdf([[
   '4. Delete D09 from A-601.',
   '5. A-101 change overall dimension from 23000 to 23800.',
   '6. Remove CHECK FIRESTOP note from A-301.',
-  '7. Coordinate MEP shaft between A-101 and A-301.'
+  '7. Coordinate MEP shaft between A-101 and A-301.',
+  '8. Coordinate shaft S-02 between A-101 and external M-101.'
 ]]);
 const oldPdf=await makePdf([
   ['SHEET: A-101','LEVEL 1 FLOOR PLAN','ROOM 102: MEETING ROOM','STAIR CLR 1200','WINDOWS W01 W02','OVERALL 23000'],
@@ -74,7 +75,7 @@ const newPdf=await makePdf([
 ]);
 
 const comments=parseCommentLines(await commentLines(commentsPdf));
-assert.equal(comments.length,7);
+assert.equal(comments.length,8);
 const [oldPages,newPages]=await Promise.all([scanPdf(oldPdf),scanPdf(newPdf)]);
 assert.deepEqual(oldPages.map(x=>x.sheetId),['A-101','A-201','A-301','A-601']);
 assert.deepEqual(newPages.map(x=>x.sheetId),['A-101','A-201','A-301','A-601']);
@@ -130,11 +131,12 @@ if(process.env.COMMENT_API_URL){
     C004:'implemented',
     C005:'implemented',
     C006:'not_found',
-    C007:'uncertain'
+    C007:'not_found',
+    C008:'uncertain'
   };
   for(const [id,status] of Object.entries(expected)){
     if(map.get(id)!==status)throw new Error('status mismatch '+id+': expected '+status+' got '+map.get(id));
   }
-  if(body.result?.counts?.total!==7)throw new Error('comment count mismatch');
+  if(body.result?.counts?.total!==8)throw new Error('comment count mismatch');
   console.log('Module 03 production regression passed',Object.fromEntries(map));
 }
