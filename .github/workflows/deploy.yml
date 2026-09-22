@@ -48,7 +48,7 @@ jobs:
               process.stdin.on("end",()=>{
                 try{
                   const x=JSON.parse(s);
-                  const ok=x.ok&&x.configured&&x.engine==="agent-hong-v1.6.2"&&["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"].every(m=>x.modules?.includes(m));
+                  const ok=x.ok&&x.configured&&x.engine==="agent-hong-v1.7"&&["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions","design-briefing"].every(m=>x.modules?.includes(m));
                   process.exit(ok?0:1);
                 }catch{process.exit(1)}
               });
@@ -64,14 +64,14 @@ jobs:
             process.stdin.on("data",d=>s+=d);
             process.stdin.on("end",()=>{
               const x=JSON.parse(s);
-              if(!x.ok || !x.configured || x.engine!=="agent-hong-v1.6.2") throw new Error("health not ready or wrong engine: "+x.engine);
-              for(const m of ["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"]){
+              if(!x.ok || !x.configured || x.engine!=="agent-hong-v1.7") throw new Error("health not ready or wrong engine: "+x.engine);
+              for(const m of ["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions","design-briefing"]){
                 if(!x.modules?.includes(m)) throw new Error("missing module: "+m);
               }
               console.log("Agent Hong health smoke passed");
             });
           '
-          for page in version-diff.html drawing-review.html comment-check.html history-search.html reference-assistant.html geotech-conditions.html; do
+          for page in version-diff.html drawing-review.html comment-check.html history-search.html reference-assistant.html geotech-conditions.html design-briefing.html; do
             ok=""
             for i in 1 2 3 4 5 6; do
               if curl -fsS --max-time 30 "https://zhanghong.fhkq.best/$page" >/dev/null; then
@@ -87,3 +87,8 @@ jobs:
             fi
           done
           echo "Agent Hong module pages smoke passed"
+      - name: Production Module 07 briefing regression
+        shell: bash
+        env:
+          BRIEFING_API_URL: https://zhanghong.fhkq.best/api/design-briefing
+        run: node tests/briefing-pdf.integration.mjs
