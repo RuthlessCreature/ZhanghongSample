@@ -298,7 +298,7 @@ function buildReviewContent(body){
 
 async function callReviewMiniMax(env,body){
   if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
-  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\\/$/,"");
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
   const model=env.MINIMAX_MODEL||"MiniMax-M3";
   const resp=await fetch(base+"/chat/completions",{
     method:"POST",
