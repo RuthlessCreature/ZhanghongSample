@@ -129,13 +129,29 @@ async function callMiniMax(env, body) {
   const content = envelope?.choices?.[0]?.message?.content;
   if (!content) throw new Error("MiniMax 未返回分析内容");
 
+  // MiniMax M3 的 OpenAI-compatible 接口在部分多模态请求中会直接
+  // 把结构化结果作为 object 放进 message.content，而不是 JSON 字符串。
+  if (content && typeof content === "object" && !Array.isArray(content)) {
+    return { result: content, usage: envelope.usage || null, model };
+  }
+
+  // 兼容 content parts 数组，优先拼接 text；若某个 part 本身就是对象则直接使用。
+  if (Array.isArray(content)) {
+    const direct = content.find(x => x && typeof x === "object" && !("text" in x) && !("type" in x));
+    if (direct) return { result: direct, usage: envelope.usage || null, model };
+    const textContent = content.map(x => typeof x === "string" ? x : (x?.text || "")).join("").trim();
+    try {
+      return { result: JSON.parse(stripJsonFence(textContent)), usage: envelope.usage || null, model };
+    } catch {}
+  }
+
   try {
     return { result: JSON.parse(stripJsonFence(content)), usage: envelope.usage || null, model };
   } catch {
     return {
       result: {
         summary: "模型已完成分析，但结构化解析失败",
-        overall: content,
+        overall: typeof content === "string" ? content : JSON.stringify(content),
         counts: { changed: 0, highRisk: 0, possibleMissedSync: 0 },
         changes: [], syncRisks: [], verification: ["请人工阅读上方模型原始结果"]
       },
