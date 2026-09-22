@@ -6,11 +6,12 @@ const uniq = arr => [...new Set(arr)];
 function classifySheet(text=''){
   const t=norm(text).toUpperCase();
   if(/DOOR.*WINDOW.*SCHEDULE|WINDOW.*SCHEDULE|门窗表|门窗明细/.test(t)) return 'schedule';
-  if(/ELEVATION|立面/.test(t)) return 'elevation';
-  if(/SECTION|剖面/.test(t)) return 'section';
+  if(/FLOOR PLAN|GROUND FLOOR PLAN|LEVEL\s*\d+[^|]{0,40}PLAN|平面图|首层平面|平面布置/.test(t)) return 'plan';
+  if(/ELEVATION|立面图|南立面|北立面|东立面|西立面/.test(t)) return 'elevation';
+  if(/SECTION|剖面图|剖面/.test(t)) return 'section';
   if(/DETAIL|详图|大样/.test(t)) return 'detail';
-  if(/GENERAL NOTES|DESIGN NOTES|设计说明|总说明|说明/.test(t)) return 'notes';
-  if(/FLOOR PLAN|PLAN|平面/.test(t)) return 'plan';
+  if(/GENERAL NOTES|DESIGN NOTES|设计说明|总说明/.test(t)) return 'notes';
+  if(/\bPLAN\b|平面/.test(t)) return 'plan';
   return 'other';
 }
 
