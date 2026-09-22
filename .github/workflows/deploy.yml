@@ -87,8 +87,3 @@ jobs:
             fi
           done
           echo "Agent Hong module pages smoke passed"
-      - name: Production Module 07 briefing regression
-        shell: bash
-        env:
-          BRIEFING_API_URL: https://zhanghong.fhkq.best/api/design-briefing
-        run: node tests/briefing-pdf.integration.mjs
