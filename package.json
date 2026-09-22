@@ -1,17 +1,9 @@
 {
-  "name": "agent-hong",
-  "version": "1.4.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "test": "node tests/diff-core.test.mjs && node tests/review-core.test.mjs && node tests/comment-core.test.mjs && node tests/history-core.test.mjs && node tests/review-pdf.integration.mjs && node tests/comment-pdf.integration.mjs && node tests/history-pdf.integration.mjs",
-    "check": "node --check src/index.js && node --check public/app.js && node --check public/diff-core.js && node --check public/review-core.js && node --check public/review.js && node --check public/comment-core.js && node --check public/comment-check.js && node --check public/history-core.js && node --check public/history-search.js && node --check tests/diff-core.test.mjs && node --check tests/review-core.test.mjs && node --check tests/comment-core.test.mjs && node --check tests/history-core.test.mjs && node --check tests/review-pdf.integration.mjs && node --check tests/comment-pdf.integration.mjs && node --check tests/history-pdf.integration.mjs && npm test"
+  "name":"agent-hong","version":"1.5.0","private":true,"type":"module",
+  "scripts":{
+    "dev":"wrangler dev","deploy":"wrangler deploy",
+    "test":"node tests/diff-core.test.mjs && node tests/review-core.test.mjs && node tests/comment-core.test.mjs && node tests/history-core.test.mjs && node tests/reference-core.test.mjs && node tests/review-pdf.integration.mjs && node tests/comment-pdf.integration.mjs && node tests/history-pdf.integration.mjs && node tests/reference-pdf.integration.mjs",
+    "check":"node --check src/index.js && node --check public/app.js && node --check public/diff-core.js && node --check public/review-core.js && node --check public/review.js && node --check public/comment-core.js && node --check public/comment-check.js && node --check public/history-core.js && node --check public/history-search.js && node --check public/reference-core.js && node --check public/reference-assistant.js && node --check tests/reference-core.test.mjs && node --check tests/reference-pdf.integration.mjs && npm test"
   },
-  "devDependencies": {
-    "wrangler": "^4.0.0",
-    "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^4.10.38"
-  }
+  "devDependencies":{"wrangler":"^4.0.0","pdf-lib":"^1.17.1","pdfjs-dist":"^4.10.38"}
 }
