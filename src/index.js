@@ -361,6 +361,55 @@ function normalizeReviewResult(parsed,body){
   };
 }
 
+
+function reviewRegressionFixture(){
+  const px="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAIAAADTED8xAAACvUlEQVR4nO3TMQEAIAzAMMC/5yFjRxMFfXpn5kDV2w6ATQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQJoBSDMAaQYgzQCkGYA0A5BmANIMQNoHq+gE/QPNMGIAAAAASUVORK5CYII=";
+  return {
+    projectName:"Agent Hong Module 02 Regression",
+    focus:"重点检查 W03 在平面、南立面、门窗表之间是否闭环；检查 CHECK/VERIFY 未闭环标记。",
+    drawing:{
+      name:"Regression-B.pdf",type:"pdf",sourcePages:3,
+      pages:[
+        {pageNumber:1,image:px,sheetId:"A-101",textDigest:"LEVEL 1 FLOOR PLAN A-101 | W01 W02 W03 W04 | D01 D02 D03 D04 | CONFERENCE ROOM 102 | STAIR CLR 1350",textDigestTruncated:false,textItemCount:40},
+        {pageNumber:2,image:px,sheetId:"A-201",textDigest:"SOUTH ELEVATION A-201 | W01 W02 W04 | D01 | NOTE: PLAN A-101 ADDS WINDOW W03. CHECK IF SOUTH ELEVATION REQUIRES UPDATE.",textDigestTruncated:false,textItemCount:28},
+        {pageNumber:3,image:px,sheetId:"A-601",textDigest:"DOOR WINDOW SCHEDULE A-601 | D01 D02 D03 D04 | W01 W02 W04 | REV B NOTE: VERIFY NEW WINDOW W03 IS ADDED TO THIS SCHEDULE.",textDigestTruncated:false,textItemCount:42}
+      ]
+    },
+    reference:{name:null,text:"",mode:"none",truncated:false},
+    deterministic:{
+      textCoverage:{mode:"hybrid",totalTextItems:110,pagesWithSheetId:3,totalPages:3},
+      sheets:[
+        {page:1,sheetId:"A-101",role:"plan",windows:["W01","W02","W03","W04"],doors:["D01","D02","D03","D04"],refs:["A-101"]},
+        {page:2,sheetId:"A-201",role:"elevation",windows:["W01","W02","W04"],doors:["D01"],refs:["A-201","A-101"]},
+        {page:3,sheetId:"A-601",role:"schedule",windows:["W01","W02","W04"],doors:["D01","D02","D03","D04"],refs:["A-601"]}
+      ],
+      alerts:[
+        {id:"P001",severity:"high",category:"门窗一致性",location:"A-101",issue:"平面出现窗号 W03，但当前门窗表文字层未检出该编号",evidence:"A-101 含 W03；A-601 门窗表仅含 W01/W02/W04。",source:"pdf_text"},
+        {id:"P002",severity:"medium",category:"未闭环标记",location:"A-201",issue:"发现 CHECK 待确认文字",evidence:"NOTE: PLAN A-101 ADDS WINDOW W03. CHECK IF SOUTH ELEVATION REQUIRES UPDATE.",source:"pdf_text"},
+        {id:"P003",severity:"medium",category:"未闭环标记",location:"A-601",issue:"发现 VERIFY 待确认文字",evidence:"REV B NOTE: VERIFY NEW WINDOW W03 IS ADDED TO THIS SCHEDULE.",source:"pdf_text"}
+      ],
+      indices:{planWindows:["W01","W02","W03","W04"],planDoors:["D01","D02","D03","D04"],scheduleWindows:["W01","W02","W04"],scheduleDoors:["D01","D02","D03","D04"]},
+      fullyLoaded:true
+    }
+  };
+}
+
+async function handleReviewRegression(env){
+  const body=reviewRegressionFixture();
+  try{
+    const {parsed,usage,model}=await callReviewMiniMax(env,body);
+    const result=normalizeReviewResult(parsed,body);
+    const dump=JSON.stringify(result);
+    const checks={
+      hardW03:result.hardAlerts.some(x=>x.id==="P001"&&/W03/.test(x.issue+x.evidence)),
+      crossElevation:/W03/.test(dump)&&/A-201|立面/.test(dump),
+      crossSchedule:/W03/.test(dump)&&/A-601|门窗表|SCHEDULE/i.test(dump),
+      noFakeCompliance:!/违反.{0,10}规范|符合.{0,10}规范/.test(dump)
+    };
+    return json({ok:Object.values(checks).every(Boolean),checks,result,usage,model});
+  }catch(e){return json({ok:false,error:e?.message||"module02 regression failed"});}
+}
+
 async function handleReview(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
@@ -391,7 +440,7 @@ export default {
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",modules:["version-diff","drawing-review"],model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
     if(url.pathname==="/api/__agent_hong_regression_1c7b"&&request.method==="GET")return handleRegression(env);
-    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
+    if(url.pathname==="/api/__review_regression_8f31"&&request.method==="GET")return handleReviewRegression(env);\n    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
