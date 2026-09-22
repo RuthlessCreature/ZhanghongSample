@@ -573,6 +573,23 @@ function commentStatus(v){
   return ["implemented","partial","not_found","uncertain"].includes(v)?v:"uncertain";
 }
 
+function missingTargetScopeOverride(comment,body){
+  const targets=safeArray(comment?.targetSheets).filter(Boolean);
+  if(!targets.length)return null;
+  const available=new Set();
+  for(const p of safeArray(body?.drawing?.pagePairs)){
+    if(p?.sheetId)available.add(String(p.sheetId));
+  }
+  const missing=targets.filter(x=>!available.has(String(x)));
+  if(!missing.length)return null;
+  return {
+    status:"uncertain",
+    confidence:.99,
+    missing,
+    reason:"意见明确涉及图号 "+missing.join(", ")+"，但本次 A/B 图纸中未提供对应可配对页面，不能判定为已落实或未落实。"
+  };
+}
+
 function safeDeterministicClosureOverride(comment,ev){
   if(!comment||!ev||ev.deterministicHint!=="likely-implemented")return null;
   const text=String(comment.text||"");
@@ -625,7 +642,9 @@ function normalizeCommentResult(parsed,body){
     const x=byId.get(String(comment.id))||{};
     const ev=evidenceMap.get(String(comment.id))||{};
     const ids=safeArray(x?.deterministicIds).filter(v=>typeof v==="string"&&validDiffs.has(v)).slice(0,16);
-    const override=safeDeterministicClosureOverride(comment,ev);
+    const scopeOverride=missingTargetScopeOverride(comment,body);
+    const closureOverride=scopeOverride?null:safeDeterministicClosureOverride(comment,ev);
+    const override=scopeOverride||closureOverride;
     const status=override?.status||commentStatus(x?.status);
     const mergedIds=uniqStrings(ids.concat(safeArray(override?.deterministicIds).filter(v=>validDiffs.has(v)))).slice(0,16);
     return {
@@ -638,10 +657,11 @@ function normalizeCommentResult(parsed,body){
       oldEvidence:String(x?.oldEvidence||""),
       newEvidence:String(x?.newEvidence||""),
       deterministicIds:mergedIds,
-      missingSync:override?"":String(x?.missingSync||""),
-      reviewerAction:override?"抽查对应图纸并确认无其他联动遗漏。":String(x?.reviewerAction||"人工复核该意见及相关图纸"),
+      missingSync:scopeOverride?("缺少目标图纸："+scopeOverride.missing.join(", ")):closureOverride?"":String(x?.missingSync||""),
+      reviewerAction:scopeOverride?"补充缺失目标图纸后重新检查。":closureOverride?"抽查对应图纸并确认无其他联动遗漏。":String(x?.reviewerAction||"人工复核该意见及相关图纸"),
       deterministicHint:String(ev?.deterministicHint||""),
-      deterministicOverride:Boolean(override)
+      deterministicOverride:Boolean(override),
+      overrideType:scopeOverride?"missing-target-scope":closureOverride?"deterministic-closure":""
     };
   });
 
