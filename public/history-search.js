@@ -247,7 +247,7 @@ function renderResults(results,aiMeta){
     +'<p>'+esc(r.fileName)+' · 第 '+r.pageNumber+' 页</p><p>'+esc(r.snippet||String(r.text||'').slice(0,260))+'</p>'
     +'<div class="hit-meta">'+(r.matchReasons||[]).map(x=>'<span class="match-chip">'+esc(x)+'</span>').join('')+'</div></div>'
     +'<div class="hit-side"><strong>#'+(i+1)+'</strong><span>本机 '+Number(r.searchScore||0).toFixed(1)+'</span>'
-    +(r.aiRelevance!==undefined?'<span class="ai">M3 '+Math.round(r.aiRelevance*100)+'%</span>':'')+'</div></article>').join('');
+    +(r.aiRelevance!==undefined?'<span class="ai">M3 '+Math.round(r.aiRelevance*100)+'%</span>':'')+(r.aiReason?'<span class="ai">'+esc(r.aiReason)+'</span>':'')+'</div></article>').join('');
   el.querySelectorAll('.history-hit').forEach(card=>card.addEventListener('click',()=>openPreview(card.dataset.id)));
 }
 function openPreview(id){
@@ -273,9 +273,11 @@ async function doSearch(){
         const aiMap=new Map((aiData?.ranked||[]).map(x=>[x.id,x]));
         const combined=[...candidates].map(r=>{
           const localHit=local.find(x=>x.id===r.id)||r,ai=aiMap.get(r.id);
-          return {...localHit,searchScore:Number(localHit.searchScore||0),matchReasons:localHit.matchReasons||[],snippet:localHit.snippet||String(r.text||'').slice(0,260),aiRelevance:ai?Number(ai.relevance):undefined,aiReason:ai?.reason||''};
+          const searchScore=Number(localHit.searchScore||0),aiRelevance=ai?Number(ai.relevance):undefined;
+          const combinedScore=Math.min(70,searchScore)+(Number.isFinite(aiRelevance)?aiRelevance*100:0);
+          return {...localHit,searchScore,matchReasons:localHit.matchReasons||[],snippet:localHit.snippet||String(r.text||'').slice(0,260),aiRelevance,aiReason:ai?.reason||'',combinedScore};
         }).filter(r=>r.searchScore>0||r.aiRelevance>=.35)
-          .sort((a,b)=>(Number(b.aiRelevance??-.1)-Number(a.aiRelevance??-.1))||(b.searchScore-a.searchScore))
+          .sort((a,b)=>(b.combinedScore-a.combinedScore)||(b.searchScore-a.searchScore))
           .slice(0,30);
         results=combined;
       }catch(e){console.warn('AI rerank failed',e);$('searchStatus').textContent='M3 重排失败，已回退到本机检索：'+(e.message||e);}
