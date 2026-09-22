@@ -34,7 +34,7 @@ export function referencedSheets(text=''){
 function rooms(text=''){
   const t=upper(text);
   const out=[];
-  const re=/\\bROOM\\s+(\\d{2,4}[A-Z]?)\\s*[:\\-]\\s*([A-Z][A-Z0-9 &/()\\-]{2,45}?)(?=\s{2,}|\s(?:ROOM|SHEET|REV|CHECK|VERIFY|TBD|PENDING|HOLD|DOOR|WINDOW|STAIR|REFERENCES)\b|$)/g;
+  const re=/\bROOM\s+(\d{2,4}[A-Z]?)\s*[:\-]\s*([A-Z][A-Z0-9 &/()\-]{2,45}?)(?=\s{2,}|\s(?:ROOM|SHEET|REV|CHECK|VERIFY|TBD|PENDING|HOLD|DOOR|WINDOW|STAIR|REFERENCES)\b|$)/g;
   let m;
   while((m=re.exec(t))){
     let name=norm(m[2]).replace(/\s+(SHEET|REV|ISSUE)$/,'').trim();
