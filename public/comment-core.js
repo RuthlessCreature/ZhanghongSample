@@ -149,6 +149,20 @@ function likelyImplemented(comment,candidates){
     }
   }
 
+  const removeIntent=/删除|取消|移除|关闭|清除|REMOVE|DELETE|CLOSE/i.test(comment.text);
+  if(removeIntent){
+    const commentTokens=meaningfulTokens(comment.text);
+    for(const c of strong){
+      const before=String(c.change?.before||''),after=String(c.change?.after||'');
+      const beforeTokens=meaningfulTokens(before);
+      const targetOverlap=intersectionCount(commentTokens,beforeTokens);
+      const unresolvedOld=/\b(CHECK|VERIFY|TBD|TBC|PENDING|HOLD)\b/i.test(before);
+      const unresolvedNew=/\b(CHECK|VERIFY|TBD|TBC|PENDING|HOLD)\b/i.test(after);
+      if(c.change?.type==='remove' && targetOverlap) return 'likely-implemented';
+      if(c.change?.type==='replace' && targetOverlap && unresolvedOld && !unresolvedNew) return 'likely-implemented';
+    }
+  }
+
   if(comment.marks?.length){
     const add=/新增|增加|补充|ADD|NEW|INSERT/i.test(comment.text);
     const remove=/删除|取消|移除|REMOVE|DELETE/i.test(comment.text);
