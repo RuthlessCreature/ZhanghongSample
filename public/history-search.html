@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0d10">
+  <title>Agent Hong｜历史图纸检索</title>
+  <meta name="description" content="Agent Hong 历史图纸检索：本机索引 + 精确检索 + MiniMax M3 语义重排。">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/history-search.css">
+</head>
+<body>
+  <div class="blueprint"></div>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">AH</span><span class="brand-name">Agent Hong</span></a>
+    <div class="status" id="serviceStatus"><span></span> 系统检查中</div>
+  </header>
+
+  <main>
+    <section class="hero history-hero">
+      <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 04</div>
+      <h1>以前画过的东西，<br><em>别再靠问“谁记得在哪”。</em></h1>
+      <p>把历史项目 PDF 建成本机索引。以后搜项目、图号、房间、门窗编号、节点做法或一句自然语言，Agent Hong 直接定位到具体项目 / 文件 / 图号 / 页码。原始 PDF 不上传服务器。</p>
+      <div class="engine-strip"><span>LOCAL INDEX</span><b>→</b><span>EXACT RETRIEVAL</span><b>→</b><span>M3 RERANK</span><b>→</b><span>SHEET / PAGE HIT</span></div>
+    </section>
+
+    <section class="library-strip">
+      <div><strong id="statProjects">0</strong><span>项目</span></div>
+      <div><strong id="statFiles">0</strong><span>PDF</span></div>
+      <div><strong id="statPages">0</strong><span>已索引页</span></div>
+      <div><strong id="statYears">—</strong><span>年份范围</span></div>
+      <div class="privacy"><b>LOCAL ONLY</b><span>索引 / 缩略图保存在本机浏览器 IndexedDB</span></div>
+    </section>
+
+    <section class="workspace history-workspace">
+      <div class="workspace-head"><div><div class="step-tag">04 / LOCAL ARCHIVE</div><h2>历史图纸库</h2></div><span class="beta">SEARCH V1</span></div>
+
+      <div class="import-grid">
+        <div class="import-form">
+          <h3>导入一个历史项目</h3>
+          <div class="meta-grid history-meta">
+            <label>项目名称<input id="projectName" maxlength="100" placeholder="例如：2024 宜宾滨江办公楼"></label>
+            <label>项目年份<input id="projectYear" inputmode="numeric" maxlength="4" placeholder="例如：2024"></label>
+          </div>
+          <div class="dropzone history-drop" id="historyDrop" tabindex="0">
+            <input id="historyFiles" type="file" accept="application/pdf" multiple hidden>
+            <div class="drop-icon">PDF</div>
+            <h3>批量选择该项目 PDF</h3>
+            <p>可一次选择建筑总图、平面、立面、剖面、详图等多个 PDF</p>
+            <div class="file-info" id="historyInfo">尚未选择文件</div>
+          </div>
+          <button class="primary compact" id="importBtn" disabled><span>建立本机索引</span><b>↗</b></button>
+          <div class="limits left">每个 PDF 最多索引前 100 页 · 原始 PDF 不上传也不保存 · 保存文字索引和低清页预览</div>
+        </div>
+
+        <div class="library-tools">
+          <h3>索引管理</h3>
+          <p>浏览器索引长期保存在当前设备。换电脑或清浏览器数据前，建议导出备份。</p>
+          <button class="secondary tool-btn" id="exportBtn">导出索引备份 JSON</button>
+          <label class="secondary tool-btn file-label">导入索引备份<input id="importIndexFile" type="file" accept="application/json,.json" hidden></label>
+          <button class="secondary tool-btn danger" id="clearBtn">清空本机历史库</button>
+          <div class="db-note"><b>不做什么：</b>V1 不上传云端、不做团队共享、不存原始 PDF。目标先验证“设计师到底会不会高频搜历史图”。</div>
+        </div>
+      </div>
+
+      <div class="index-progress hidden" id="indexProgress">
+        <div class="progress-line"><i id="indexFill"></i></div>
+        <b id="indexTitle">正在建立索引…</b>
+        <span id="indexText">—</span>
+      </div>
+    </section>
+
+    <section class="search-panel">
+      <div class="search-head">
+        <div><div class="step-tag">SEARCH</div><h2>搜历史图纸</h2></div>
+        <label class="ai-toggle"><input type="checkbox" id="aiToggle" checked><span>MiniMax M3 语义重排</span></label>
+      </div>
+
+      <div class="search-box">
+        <input id="query" placeholder="例如：A-501 / W03 / ROOM 205 / 找以前做过的屋顶花园防水节点">
+        <button id="searchBtn">检索 ↗</button>
+      </div>
+      <div class="search-examples">
+        <button data-q="A-501">A-501</button>
+        <button data-q="W03">W03</button>
+        <button data-q="ROOM 205 server room">ROOM 205</button>
+        <button data-q="找以前做过的屋顶花园防水节点">屋顶花园防水节点</button>
+      </div>
+
+      <div class="filters">
+        <select id="projectFilter"><option value="">全部项目</option></select>
+        <select id="roleFilter">
+          <option value="all">全部图种</option>
+          <option value="plan">平面</option><option value="elevation">立面</option><option value="section">剖面</option>
+          <option value="detail">详图/节点</option><option value="schedule">门窗表</option><option value="notes">说明</option><option value="other">其他</option>
+        </select>
+        <select id="yearFilter"><option value="">全部年份</option></select>
+      </div>
+
+      <div class="search-meta"><span id="searchStatus">本机历史库为空，请先导入项目。</span><span id="searchTiming"></span></div>
+      <div class="history-results" id="results"></div>
+    </section>
+
+    <section class="result-block project-block">
+      <div class="block-title"><div><h3>已导入项目</h3><p>用于确认本机索引内容；删除项目不会影响你的原始 PDF。</p></div><span>LOCAL LIBRARY</span></div>
+      <div class="project-list" id="projectList"></div>
+    </section>
+  </main>
+
+  <div class="preview hidden" id="preview">
+    <div class="preview-mask" id="previewMask"></div>
+    <article class="preview-panel">
+      <button class="preview-close" id="previewClose">×</button>
+      <div class="eyebrow">HISTORY SHEET PREVIEW</div>
+      <h2 id="previewTitle">—</h2>
+      <p id="previewMeta">—</p>
+      <img id="previewImage" alt="历史图纸页预览">
+      <pre id="previewText"></pre>
+    </article>
+  </div>
+
+  <footer><span>AGENT HONG / MODULE 04</span><span>Local index first. AI rerank second.</span></footer>
+  <script type="module" src="/history-search.js"></script>
+</body>
+</html>
