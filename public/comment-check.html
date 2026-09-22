@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0d10">
+  <title>Agent Hong｜总工意见落实检查</title>
+  <meta name="description" content="Agent Hong：总工/校审意见逐条闭环检查。">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/comment-check.css">
+</head>
+<body>
+  <div class="blueprint"></div>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">AH</span><span class="brand-name">Agent Hong</span></a>
+    <div class="status" id="serviceStatus"><span></span> 系统检查中</div>
+  </header>
+
+  <main>
+    <section class="hero comment-hero">
+      <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 03</div>
+      <h1>总工提了 30 条意见，<br><em>别靠人脑逐条翻图。</em></h1>
+      <p>把总工/校审意见、修改前图、修改后图一起扔进来。Agent Hong 先用 PDF 精确 Diff 找硬证据，再让 MiniMax M3 判断每条意见到底是已落实、只改了一半、根本没找到，还是证据不足。</p>
+      <div class="engine-strip"><span>COMMENT PARSER</span><b>→</b><span>EXACT A/B DIFF</span><b>→</b><span>M3 EVIDENCE CHECK</span><b>→</b><span>CLOSURE MATRIX</span></div>
+    </section>
+
+    <section class="workspace" id="workspace">
+      <div class="workspace-head"><div><div class="step-tag">03 / COMMENT CLOSURE</div><h2>上传意见 + 修改前后图</h2></div><span class="beta">CLOSURE V1</span></div>
+
+      <div class="meta-grid">
+        <label>项目名称（可选）<input id="projectName" maxlength="80" placeholder="例如：宜宾 XX 项目施工图校审"></label>
+        <label>补充说明（可选）<input id="notes" maxlength="400" placeholder="例如：本轮重点核对建筑专业，机电意见不在本次范围"></label>
+      </div>
+
+      <div class="comment-upload-grid">
+        <div class="dropzone comment-drop" data-target="comments" tabindex="0">
+          <input id="commentsFile" type="file" accept=".pdf,.txt,.csv,.docx,.xlsx,.xls,application/pdf,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+          <div class="version-pill">COMMENTS</div><div class="drop-icon comment-icon">C</div>
+          <h3>总工 / 校审意见</h3>
+          <p>PDF / TXT / CSV / DOCX / XLSX</p>
+          <div class="file-info" id="commentsInfo">尚未选择文件</div>
+        </div>
+        <div class="dropzone comment-drop" data-target="old" tabindex="0">
+          <input id="oldFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
+          <div class="version-pill">BEFORE</div><div class="drop-icon">A</div>
+          <h3>修改前图纸</h3>
+          <p>PDF / PNG / JPG / WEBP</p>
+          <div class="file-info" id="oldInfo">尚未选择文件</div>
+        </div>
+        <div class="dropzone comment-drop" data-target="new" tabindex="0">
+          <input id="newFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
+          <div class="version-pill">AFTER</div><div class="drop-icon">B</div>
+          <h3>修改后图纸</h3>
+          <p>PDF / PNG / JPG / WEBP</p>
+          <div class="file-info" id="newInfo">尚未选择文件</div>
+        </div>
+      </div>
+
+      <div class="limits">原始文件不上传 · 最多预扫前 30 页文字层 · M3 最多查看 8 组关键 A/B 页面 · 单文件建议 ≤ 35MB</div>
+      <button class="primary" id="checkBtn" disabled><span>开始逐条落实检查</span><b>↗</b></button>
+    </section>
+
+    <section class="progress hidden" id="progress">
+      <div class="scanner"></div>
+      <div class="progress-copy"><div class="eyebrow">AGENT HONG IS CHECKING</div><h2 id="progressTitle">正在读取意见…</h2><p id="progressText">先把总工/校审意见拆成可逐条核对的 C001 / C002...</p></div>
+      <div class="progress-steps"><span class="active" id="p1">01 意见拆分</span><span id="p2">02 A/B精确Diff</span><span id="p3">03 证据匹配</span><span id="p4">04 M3判定</span><span id="p5">05 闭环报告</span></div>
+    </section>
+
+    <section class="results hidden" id="results">
+      <div class="result-head">
+        <div><div class="eyebrow">CLOSURE CHECK COMPLETE</div><h2>总工意见落实矩阵</h2><div id="analysisMode" class="mode">—</div></div>
+        <div class="result-actions"><button class="secondary" id="csvBtn">下载 CSV</button><button class="secondary" id="jsonBtn">下载 JSON</button><button class="secondary" id="printBtn">打印 / PDF</button><button class="secondary" id="resetBtn">重新检查</button></div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-copy"><span>闭环摘要</span><h3 id="summaryText">—</h3><p id="overallText">—</p><small id="runtimeMeta">—</small></div>
+        <div class="closure-metrics">
+          <div><strong id="totalCount">0</strong><span>意见总数</span></div>
+          <div><strong id="doneCount">0</strong><span>已落实</span></div>
+          <div><strong id="partialCount">0</strong><span>部分落实</span></div>
+          <div><strong id="missingCount">0</strong><span>未找到</span></div>
+          <div><strong id="uncertainCount">0</strong><span>无法判定</span></div>
+        </div>
+      </div>
+
+      <div class="closure-bar-wrap">
+        <div class="closure-label"><b id="closureRate">0%</b><span>明确闭环率（已落实 / 总意见）</span></div>
+        <div class="closure-bar"><i id="closureFill"></i></div>
+      </div>
+
+      <div class="filter-row" id="filters">
+        <button class="filter active" data-filter="all">全部</button>
+        <button class="filter" data-filter="implemented">已落实</button>
+        <button class="filter" data-filter="partial">部分落实</button>
+        <button class="filter" data-filter="not_found">未找到</button>
+        <button class="filter" data-filter="uncertain">无法判定</button>
+      </div>
+
+      <div class="result-block matrix-block">
+        <div class="block-title"><div><h3>逐条意见闭环矩阵</h3><p>“已落实”必须有正向证据；没有证据时宁可判未找到/无法判定。</p></div><span>COMMENT CLOSURE MATRIX</span></div>
+        <div class="closure-list" id="closureList"></div>
+      </div>
+
+      <div class="result-block">
+        <div class="block-title"><div><h3>额外变更提醒</h3><p>图纸出现但没有明显对应到总工意见的变化，避免“顺手改了别的东西”没人看。</p></div><span>UNLISTED CHANGES</span></div>
+        <div class="cards" id="unlistedCards"></div>
+      </div>
+
+      <div class="result-grid">
+        <div class="result-block"><div class="block-title"><h3>人工复核动作</h3><span>HUMAN CHECK</span></div><ol class="verify-list" id="checklist"></ol></div>
+        <div class="result-block"><div class="block-title"><h3>本次分析局限</h3><span>LIMITATIONS</span></div><ul class="verify-list" id="limitations"></ul></div>
+      </div>
+
+      <div class="disclaimer">Agent Hong 03 用于辅助“修改意见是否落实”的闭环核对。它不替代总工、校审人员或设计负责人签字；对扫描图、模糊小字、未扫描页和需要专业规范判断的事项必须人工复核。</div>
+    </section>
+  </main>
+
+  <footer><span>AGENT HONG / MODULE 03</span><span>Every comment needs evidence.</span></footer>
+  <script type="module" src="/comment-check.js"></script>
+</body>
+</html>
