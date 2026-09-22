@@ -17,7 +17,7 @@
     "enabled": true
   },
   "vars": {
-    "MINIMAX_API_BASE": "https://api.minimax.io/v1",
+    "MINIMAX_API_BASE": "https://api.minimaxi.com/v1",
     "MINIMAX_MODEL": "MiniMax-M3"
   }
 }
