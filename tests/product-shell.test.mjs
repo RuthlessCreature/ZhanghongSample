@@ -18,7 +18,7 @@ for(const file of pages){
   assert.ok(fs.existsSync(full),file+" missing");
   const html=fs.readFileSync(full,"utf8");
   assert.match(html,/<title>[^<]{4,}<\/title>/,file+" title missing");
-  assert.match(html,/<meta name="description" content="[^"]{20,}">/,file+" description missing");
+  assert.match(html,/<meta\s+name="description"\s+content="[^"]{20,}"\s*\/?>/,file+" description missing");
   assert.equal((html.match(/\/product-theme\.css/g)||[]).length,1,file+" must load product-theme.css exactly once");
   assert.equal((html.match(/<h1\b/g)||[]).length,1,file+" should contain one primary h1");
   assert.ok(html.includes("<main"),file+" main missing");
