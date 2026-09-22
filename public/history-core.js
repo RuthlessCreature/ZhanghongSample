@@ -81,6 +81,28 @@ export function tokenizeHistory(text=""){
   return uniq([...latinTokens(text),...cjkTokens(text)]);
 }
 
+
+const HISTORY_SYNONYMS=[
+  ["屋顶花园","ROOF GARDEN"],["防水","WATERPROOF"],["女儿墙","PARAPET"],
+  ["卫生间","TOILET"],["厕所","TOILET"],["无障碍","ACCESSIBLE"],["无障碍卫生间","ACCESSIBLE TOILET"],
+  ["楼梯","STAIR"],["门窗","DOOR WINDOW"],["门","DOOR"],["窗","WINDOW"],
+  ["机房","SERVER ROOM"],["设备间","EQUIPMENT ROOM"],["会议室","MEETING ROOM"],
+  ["办公室","OFFICE"],["大堂","LOBBY"],["平面","PLAN"],["立面","ELEVATION"],
+  ["剖面","SECTION"],["详图","DETAIL"],["节点","DETAIL"],["幕墙","CURTAIN WALL"],
+  ["机电","MEP"],["竖井","SHAFT"],["坡道","RAMP"],["栏杆","RAILING"]
+];
+
+function expandSemanticTokens(query,tokens){
+  const q=upper(query),out=[...(tokens||[])];
+  for(const [zh,en] of HISTORY_SYNONYMS){
+    const zhu=upper(zh),enu=upper(en);
+    if(q.includes(zhu)||q.includes(enu)){
+      out.push(...tokenizeHistory(zh),...tokenizeHistory(en));
+    }
+  }
+  return uniq(out);
+}
+
 export function parseHistoryQuery(query=""){
   const q=norm(query);
   const up=upper(q);
@@ -95,7 +117,8 @@ export function parseHistoryQuery(query=""){
   if(/详图|节点|大样|DETAIL/i.test(q))roleHints.push("detail");
   if(/门窗表|SCHEDULE/i.test(q))roleHints.push("schedule");
   if(/说明|NOTES?/i.test(q))roleHints.push("notes");
-  return {raw:q,sheetRefs,marks,rooms,years,roleHints:uniq(roleHints),tokens:tokenizeHistory(q)};
+  const baseTokens=tokenizeHistory(q);
+  return {raw:q,sheetRefs,marks,rooms,years,roleHints:uniq(roleHints),tokens:expandSemanticTokens(q,baseTokens)};
 }
 
 export function buildHistoryRecord(input={}){
