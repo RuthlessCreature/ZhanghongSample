@@ -812,6 +812,109 @@ function normalizeCommentResult(parsed,body){
   };
 }
 
+
+const MAX_HISTORY_CANDIDATES=60;
+
+const HISTORY_SYSTEM_PROMPT=[
+  "你是 Agent Hong 的历史图纸语义检索重排器。用户已经在浏览器本地做过确定性检索，你只负责在给定候选页中判断哪些最符合查询意图。",
+  "",
+  "强制规则：",
+  "1. 只能返回输入 candidates 中存在的 id，禁止创造项目、图号或页面。",
+  "2. 如果查询包含明确图号、门窗号、ROOM编号、年份或精确尺寸，这些硬条件优先级高于语义相似。",
+  "3. 项目名、图纸标题和 PDF 文字摘要都可以作为证据。",
+  "4. relevance 范围 0.0-1.0；完全无关应低于 0.25。",
+  "5. 对自然语言查询，例如‘找以前做过的屋顶花园防水节点’，可以理解同义表达，但不得声称候选文字里不存在的事实。",
+  "6. 只输出严格 JSON，不要 Markdown，不要解释。",
+  "",
+  "输出：",
+  "{\"intent\":\"一句话理解查询\",\"ranked\":[{\"id\":\"候选ID\",\"relevance\":0.0,\"reason\":\"为什么匹配\"}]}"
+].join("\n");
+
+function validateHistoryPayload(body){
+  if(!body||typeof body!=="object")return "请求体无效";
+  const query=String(body?.query||"").trim();
+  if(!query)return "缺少检索词";
+  if(query.length>500)return "检索词过长";
+  const candidates=safeArray(body?.candidates);
+  if(!candidates.length)return "缺少候选页";
+  if(candidates.length>MAX_HISTORY_CANDIDATES)return "候选页最多 "+MAX_HISTORY_CANDIDATES+" 个";
+  const ids=new Set();
+  for(const x of candidates){
+    const id=String(x?.id||"");
+    if(!id)return "存在无 ID 候选页";
+    if(ids.has(id))return "候选页 ID 重复";
+    ids.add(id);
+    if(String(x?.text||"").length>1200)return "候选页文字摘要过长";
+  }
+  return null;
+}
+
+async function callHistoryMiniMax(env,body){
+  if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
+  const model=env.MINIMAX_MODEL||"MiniMax-M3";
+  const candidates=safeArray(body?.candidates).slice(0,MAX_HISTORY_CANDIDATES).map(x=>({
+    id:String(x.id),
+    projectName:String(x.projectName||""),
+    projectYear:x.projectYear||null,
+    fileName:String(x.fileName||""),
+    pageNumber:Number(x.pageNumber||0),
+    sheetId:x.sheetId||null,
+    sheetTitle:String(x.sheetTitle||""),
+    role:String(x.role||"other"),
+    deterministicScore:Number(x.deterministicScore||0),
+    text:String(x.text||"").slice(0,1200)
+  }));
+  const resp=await fetch(base+"/chat/completions",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages:[
+        {role:"system",content:HISTORY_SYSTEM_PROMPT},
+        {role:"user",content:"查询："+String(body.query)+"\n候选页 JSON：\n"+JSON.stringify(candidates)}
+      ],
+      temperature:0,
+      max_completion_tokens:4500,
+      reasoning_split:true,
+      thinking:{type:"adaptive"}
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,600));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回了非 JSON 响应")}
+  let parsed;try{parsed=parseModelContent(envelope)}catch(e){throw new Error("历史图纸重排结果解析失败："+(e?.message||e))}
+  return {parsed,usage:envelope.usage||null,model,candidates};
+}
+
+function normalizeHistoryResult(parsed,candidates){
+  const valid=new Map(candidates.map(x=>[String(x.id),x]));
+  const seen=new Set(),ranked=[];
+  for(const x of safeArray(parsed?.ranked)){
+    const id=String(x?.id||"");
+    if(!valid.has(id)||seen.has(id))continue;
+    seen.add(id);
+    ranked.push({
+      id,
+      relevance:confidence(x?.relevance),
+      reason:String(x?.reason||"语义相关")
+    });
+  }
+  ranked.sort((a,b)=>b.relevance-a.relevance);
+  return {intent:String(parsed?.intent||""),ranked:ranked.slice(0,20)};
+}
+
+async function handleHistorySearch(request,env){
+  const len=Number(request.headers.get("content-length")||"0");
+  if(len>2*1024*1024)return json({error:"历史检索请求过大"},413);
+  let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
+  const error=validateHistoryPayload(body);if(error)return json({error},400);
+  try{
+    const {parsed,usage,model,candidates}=await callHistoryMiniMax(env,body);
+    return json({ok:true,...normalizeHistoryResult(parsed,candidates),usage,model});
+  }catch(e){console.error("history_search_failed",e);return json({error:e?.message||"历史图纸语义重排失败"},502)}
+}
+
 async function handleCommentCheck(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
@@ -851,7 +954,8 @@ export default {
     if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.3",modules:["version-diff","drawing-review","comment-check"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.4",modules:["version-diff","drawing-review","comment-check","history-search"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/history-search"&&request.method==="POST")return handleHistorySearch(request,env);
     if(url.pathname==="/api/comment-check"&&request.method==="POST")return handleCommentCheck(request,env);
     if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
