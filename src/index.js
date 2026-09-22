@@ -640,6 +640,64 @@ function missingTargetScopeOverride(comment,body){
   };
 }
 
+function explicitCoordinationTextOverride(comment,body){
+  const text=String(comment?.text||"");
+  const targets=safeArray(comment?.targetSheets).map(String).filter(Boolean);
+  if(targets.length<2)return null;
+
+  // This override is deliberately narrow: only comments that explicitly demand a note/statement/mark.
+  const explicitIntent=/EXPLICIT.{0,30}(NOTE|STATEMENT|MARK)|ADD.{0,30}(NOTE|STATEMENT)|明确.{0,20}(说明|注明|标注|备注)|增加.{0,20}(说明|注明|标注|备注)/i.test(text);
+  if(!explicitIntent)return null;
+
+  const available=new Set(safeArray(body?.drawing?.pagePairs).map(x=>String(x?.sheetId||"")).filter(Boolean));
+  if(targets.some(x=>!available.has(x)))return null;
+
+  const targetSet=new Set(targets);
+  const pairText=new Map();
+  for(const p of safeArray(body?.drawing?.selectedPairs)){
+    const sid=String(p?.sheetId||"");
+    if(targetSet.has(sid))pairText.set(sid,String(p?.newTextDigest||"").toUpperCase());
+  }
+  // Absence can only be asserted when every target sheet was actually text-visible to the server.
+  if(targets.some(x=>!pairText.has(x)))return null;
+
+  const targetRefs=new Set(targets.map(x=>x.toUpperCase()));
+  const objectTokens=uniqStrings((text.toUpperCase().match(/\b[A-Z][A-Z0-9]*-\d+[A-Z0-9-]*\b/g)||[])
+    .filter(x=>!targetRefs.has(x) && !/^[WD]-?\d/.test(x)));
+  if(!objectTokens.length)return null;
+
+  const completion=/COORDINATED|RESOLVED|CONFIRMED|已协调|已落实|已确认|完成/i;
+  const satisfied=[];
+  for(const sid of targets){
+    const pageText=pairText.get(sid)||"";
+    const tokenHit=objectTokens.every(tok=>pageText.includes(tok));
+    satisfied.push(tokenHit && completion.test(pageText));
+  }
+
+  const done=satisfied.filter(Boolean).length;
+  if(done===targets.length){
+    return {
+      status:"implemented",
+      confidence:.99,
+      reason:"目标图纸均在本次范围内，PDF 文字层已检出 "+objectTokens.join(", ")+" 及明确的已协调/已完成表述。"
+    };
+  }
+  if(done>0){
+    return {
+      status:"partial",
+      confidence:.99,
+      reason:"意见要求在多张目标图中形成明确协调说明，但只有部分目标图的 PDF 文字层检出 "+objectTokens.join(", ")+" 及完成表述。",
+      missing:targets.filter((_,i)=>!satisfied[i])
+    };
+  }
+  return {
+    status:"not_found",
+    confidence:.99,
+    reason:"意见要求增加明确协调说明；所有目标图均已提供且文字层可读，但新图目标页未检出 "+objectTokens.join(", ")+" 的已协调/已完成表述。",
+    missing:targets
+  };
+}
+
 function safeDeterministicClosureOverride(comment,ev){
   if(!comment||!ev||ev.deterministicHint!=="likely-implemented")return null;
   const text=String(comment.text||"");
@@ -693,8 +751,9 @@ function normalizeCommentResult(parsed,body){
     const ev=evidenceMap.get(String(comment.id))||{};
     const ids=safeArray(x?.deterministicIds).filter(v=>typeof v==="string"&&validDiffs.has(v)).slice(0,16);
     const scopeOverride=missingTargetScopeOverride(comment,body);
-    const closureOverride=scopeOverride?null:safeDeterministicClosureOverride(comment,ev);
-    const override=scopeOverride||closureOverride;
+    const explicitTextOverride=scopeOverride?null:explicitCoordinationTextOverride(comment,body);
+    const closureOverride=(scopeOverride||explicitTextOverride)?null:safeDeterministicClosureOverride(comment,ev);
+    const override=scopeOverride||explicitTextOverride||closureOverride;
     const status=override?.status||commentStatus(x?.status);
     const mergedIds=uniqStrings(ids.concat(safeArray(override?.deterministicIds).filter(v=>validDiffs.has(v)))).slice(0,16);
     return {
@@ -707,11 +766,11 @@ function normalizeCommentResult(parsed,body){
       oldEvidence:String(x?.oldEvidence||""),
       newEvidence:String(x?.newEvidence||""),
       deterministicIds:mergedIds,
-      missingSync:scopeOverride?("缺少目标图纸："+scopeOverride.missing.join(", ")):closureOverride?"":String(x?.missingSync||""),
-      reviewerAction:scopeOverride?"补充缺失目标图纸后重新检查。":closureOverride?"抽查对应图纸并确认无其他联动遗漏。":String(x?.reviewerAction||"人工复核该意见及相关图纸"),
+      missingSync:scopeOverride?("缺少目标图纸："+scopeOverride.missing.join(", ")):explicitTextOverride?.missing?.length?("未形成明确协调说明："+explicitTextOverride.missing.join(", ")):closureOverride?"":String(x?.missingSync||""),
+      reviewerAction:scopeOverride?"补充缺失目标图纸后重新检查。":explicitTextOverride?"复核目标图纸文字/标注并确认协调说明是否完整。":closureOverride?"抽查对应图纸并确认无其他联动遗漏。":String(x?.reviewerAction||"人工复核该意见及相关图纸"),
       deterministicHint:String(ev?.deterministicHint||""),
       deterministicOverride:Boolean(override),
-      overrideType:scopeOverride?"missing-target-scope":closureOverride?"deterministic-closure":""
+      overrideType:scopeOverride?"missing-target-scope":explicitTextOverride?"explicit-coordination-text":closureOverride?"deterministic-closure":""
     };
   });
 
