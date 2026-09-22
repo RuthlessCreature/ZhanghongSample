@@ -1,4 +1,4 @@
-import {detectSheetId, pairPages, summarizeDeterministicDiff} from './diff-core.js';
+import {detectSheetId, pairPages, summarizeDeterministicDiff, mergeTextItems} from './diff-core.js';
 
 const $ = (id) => document.getElementById(id);
 const state = { A: null, B: null, prepared: null, latestResponse: null };
@@ -85,8 +85,9 @@ async function renderPdfPage(page, pageNumber) {
   let textItems = [], textRaw = "";
   try {
     const tc = await page.getTextContent({ normalizeWhitespace:true, disableCombineTextItems:false });
-    textItems = tc.items.map(x => extractTextItem(x, raw)).filter(x => x.str);
-    textRaw = textItems.map(x=>x.str).join(" ");
+    const rawItems = tc.items.map(x => extractTextItem(x, raw)).filter(x => x.str);
+    textItems = mergeTextItems(rawItems);
+    textRaw = textItems.map(x=>x.str).join(" | ");
   } catch {}
 
   return {
