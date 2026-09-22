@@ -182,6 +182,9 @@ async function handleCompare(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/smoke" || url.pathname === "/smoke.html") {
+      return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+    }
     if (url.pathname === "/api/health") {
       return json({
         ok: true,
