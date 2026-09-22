@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {buildGeotechEvidence,groupGeotechEvidence,summarizeGeotechCoverage,normalizeConditionSet} from '../public/geotech-core.js';
+import {buildGeotechEvidence,groupGeotechEvidence,summarizeGeotechCoverage,normalizeConditionSet,geotechEvidencePolarity} from '../public/geotech-core.js';
 
 const pages=[
  {pageNumber:2,lines:[
@@ -17,6 +17,20 @@ const pages=[
   'Borehole BH-03 final depth 30.0 m.'
  ]}
 ];
+assert.equal(geotechEvidencePolarity('No seismic site classification is provided in this limited report.'),'absent');
+assert.equal(geotechEvidencePolarity('This report does not provide pile foundation recommendations.'),'absent');
+assert.equal(geotechEvidencePolarity('ADVERSE GEOLOGY assessment: no karst, landslide or fault was identified.'),'positive');
+
+const missingEv=buildGeotechEvidence([{pageNumber:1,lines:[
+  'No seismic site classification is provided in this limited report.',
+  'This limited report does not provide pile foundation recommendations or a pile bearing stratum.'
+]}],{documentId:'limited',documentName:'limited.pdf'});
+const missingCov=summarizeGeotechCoverage(missingEv);
+assert.ok(missingCov.missing.includes('site_class'));
+assert.ok(missingCov.missing.includes('pile_conditions'));
+assert.ok(missingCov.absent.site_class>=1);
+assert.ok(missingCov.absent.pile_conditions>=1);
+
 const ev=buildGeotechEvidence(pages,{documentName:'report.pdf'});
 const g=groupGeotechEvidence(ev);
 assert.ok(g.groundwater.length);
