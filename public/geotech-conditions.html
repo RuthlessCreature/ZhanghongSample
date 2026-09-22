@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent Hong｜地勘报告→设计条件</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/geotech-conditions.css"></head><body><div class="blueprint"></div>
+<header class="topbar"><a class="brand" href="/"><span class="brand-mark">AH</span><span class="brand-name">Agent Hong</span></a><div class="status" id="serviceStatus"><span></span> 系统检查中</div></header>
+<main>
+<section class="hero geo-hero"><div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 06</div><h1>地勘报告几十页，<br><em>设计真正要的条件先拎出来。</em></h1><p>上传数字版地勘报告，Agent Hong 先从 PDF 文字层抓地下水、承载力、桩基、持力层、液化、腐蚀性、基坑/降水等证据，再由 MiniMax M3 整理成设计条件表。每一项必须带页码和原文证据。</p><div class="engine-strip"><span>PDF TEXT</span><b>→</b><span>GEOTECH EVIDENCE</span><b>→</b><span>M3 CONDITION SET</span><b>→</b><span>PAGE-CITED OUTPUT</span></div></section>
+
+<section class="workspace"><div class="workspace-head"><div><div class="step-tag">06 / GEOTECH CONDITIONS</div><h2>上传地勘报告</h2></div><span class="beta">CONDITIONS V1</span></div>
+<div class="meta-grid"><label>项目名称<input id="projectName" maxlength="100" placeholder="例如：宜宾滨江办公楼"></label><label>关注重点<input id="notes" maxlength="300" placeholder="例如：重点看地下水、桩基和5.5m基坑"></label></div>
+<div class="dropzone geo-drop" id="geoDrop" tabindex="0"><input id="geoFiles" type="file" multiple accept="application/pdf,text/plain,.txt" hidden><div class="drop-icon">GEO</div><h3>地勘报告 PDF / TXT</h3><p>支持多文件；V1 优先数字 PDF，每文件最多扫描前 120 页文字层。</p><div class="file-info" id="geoInfo">尚未选择文件</div></div>
+<div class="limits">原始 PDF 不上传 · 只发送程序选出的证据文本给 M3 · 扫描件无文字层时需人工复核</div>
+<button class="primary" id="extractBtn" disabled><span>提取设计条件</span><b>↗</b></button>
+</section>
+
+<section class="progress hidden" id="progress"><div class="scanner"></div><div class="progress-copy"><div class="eyebrow">AGENT HONG IS READING GEOTECH</div><h2 id="progressTitle">正在读取 PDF 文字层…</h2><p id="progressText">先做确定性证据抽取，再让 M3 整理，不让模型猜数值。</p></div></section>
+
+<section class="results hidden" id="results"><div class="result-head"><div><div class="eyebrow">GEOTECH CONDITION SET</div><h2>地勘 → 设计条件表</h2></div><div class="result-actions"><button class="secondary" id="jsonBtn">下载 JSON</button><button class="secondary" id="printBtn">打印 / PDF</button><button class="secondary" id="resetBtn">重新提取</button></div></div>
+<div class="geo-summary"><div><span>摘要</span><h3 id="summary">—</h3><p id="overall">—</p><small id="runtimeMeta">—</small></div><div class="coverage"><strong id="coveredCount">0/12</strong><span>条件覆盖</span></div></div>
+<div class="coverage-grid" id="coverageGrid"></div>
+
+<div class="result-block"><div class="block-title"><div><h3>设计条件</h3><p>found / needs_review 必须有 Gxxxx 证据；无有效引用强制 not_found。</p></div><span>DESIGN CONDITIONS</span></div><div class="condition-list" id="conditionList"></div></div>
+
+<div class="result-block"><div class="block-title"><div><h3>确定性原文证据</h3><p>程序从 PDF 文字层直接抽取，精确数值优先以这里为准。</p></div><span>EXACT EVIDENCE</span></div><div class="evidence-list" id="evidenceList"></div></div>
+
+<div class="result-grid"><div class="result-block"><div class="block-title"><h3>设计师复核动作</h3><span>HUMAN CHECK</span></div><ol class="verify-list" id="checklist"></ol></div><div class="result-block"><div class="block-title"><h3>分析局限</h3><span>LIMITATIONS</span></div><ul class="verify-list" id="limitations"></ul></div></div>
+<div class="disclaimer">Agent Hong 06 用于辅助从地勘资料中提取设计条件，不替代岩土工程师、结构工程师或勘察报告原始结论。涉及基础选型、桩长、抗浮、基坑支护等设计决策必须回看原报告并由专业人员确认。</div>
+</section>
+</main><footer><span>AGENT HONG / MODULE 06</span><span>Evidence before interpretation.</span></footer><script type="module" src="/geotech-conditions.js"></script></body></html>
