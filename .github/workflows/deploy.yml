@@ -48,7 +48,7 @@ jobs:
               process.stdin.on("end",()=>{
                 try{
                   const x=JSON.parse(s);
-                  const ok=x.ok&&x.configured&&x.engine==="agent-hong-v1.6.1"&&["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"].every(m=>x.modules?.includes(m));
+                  const ok=x.ok&&x.configured&&x.engine==="agent-hong-v1.6.2"&&["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"].every(m=>x.modules?.includes(m));
                   process.exit(ok?0:1);
                 }catch{process.exit(1)}
               });
@@ -64,7 +64,7 @@ jobs:
             process.stdin.on("data",d=>s+=d);
             process.stdin.on("end",()=>{
               const x=JSON.parse(s);
-              if(!x.ok || !x.configured || x.engine!=="agent-hong-v1.6.1") throw new Error("health not ready or wrong engine: "+x.engine);
+              if(!x.ok || !x.configured || x.engine!=="agent-hong-v1.6.2") throw new Error("health not ready or wrong engine: "+x.engine);
               for(const m of ["version-diff","drawing-review","comment-check","history-search","reference-assistant","geotech-conditions"]){
                 if(!x.modules?.includes(m)) throw new Error("missing module: "+m);
               }
