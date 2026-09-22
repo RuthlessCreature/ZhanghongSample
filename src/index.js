@@ -13,7 +13,7 @@ C. 【完整页面低精度图】用于理解上下文、构件关系和跨页/�
 
 强制规则：
 1. 若 A 类确定性证据与视觉读数冲突，以 A 类为准。绝不把视觉 OCR 猜到的数字覆盖程序提取值。
-2. 对精确尺寸、标高、编号、面积、Revision Note 等，只能引用 A 类给出的原文/数值，或者明确写“视觉可见但无法精确确认”。
+2. 对精确尺寸、标高、编号、面积、Revision Note 等，只能引用 A 类给出的原文/数值，或者明确写“视觉可见但无法精确确认”。pageTextIndex 也是 PDF 文字层的确定性索引；只有当对应页 truncated=false 时，才能把“索引中不存在某编号/文字”作为缺失证据。
 3. 不要把“程序明确的文字替换”重复包装成很多 AI 变化。AI 变化应强调工程含义、几何/构件变化和跨图一致性。
 4. 优先检查：平面↔立面、平面↔剖面、平面↔门窗表/材料表/详图索引、房间名↔相关说明、尺寸链↔修订说明、图号↔标题栏。
 5. 对疑似漏同步，必须说清：哪张图发生了什么、哪张关联图没有同步、证据是什么。
@@ -105,11 +105,16 @@ function deterministicForPrompt(body) {
     id:x.id,sheetId:x.sheetId,pageA:x.pageA,pageB:x.pageB,type:x.type,before:x.before,after:x.after,
     numeric:x.numeric||null,position:x.position,matchConfidence:x.matchConfidence
   }));
+  const pageTextIndex={
+    versionA:safeArray(body?.versionA?.pages).map((p,i)=>({page:i+1,sheetId:p?.sheetId||null,text:String(p?.textDigest||""),truncated:Boolean(p?.textDigestTruncated)})),
+    versionB:safeArray(body?.versionB?.pages).map((p,i)=>({page:i+1,sheetId:p?.sheetId||null,text:String(p?.textDigest||""),truncated:Boolean(p?.textDigestTruncated)}))
+  };
   return {
     analysisMode:d?.textCoverage?.mode||"visual-only",
     textCoverage:d?.textCoverage||{},
     pagePairs:safeArray(d.pagePairs),
     exactTextChanges:changes,
+    pageTextIndex,
     visualRegions:safeArray(d.visualRegions).map(({image,...x})=>x)
   };
 }
