@@ -945,6 +945,27 @@ function validateGeotechPayload(body){
   return null;
 }
 
+async function repairGeotechJson(env,model,broken){
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
+  const resp=await fetch(base+"/chat/completions",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages:[
+        {role:"system",content:"你是 JSON 修复器。输入是一段本应为严格 JSON 的地勘条件提取结果，但可能存在漏逗号、未转义引号或代码围栏。只修复 JSON 语法，不改变任何字段值、状态、引用、数值、置信度或语义。只输出一个严格 JSON 对象，不要解释。"},
+        {role:"user",content:String(broken||"").slice(0,28000)}
+      ],
+      temperature:0,
+      max_completion_tokens:6500
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error("MiniMax geotech JSON repair API "+resp.status+": "+raw.slice(0,500));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax geotech JSON repair 返回非 JSON 响应")}
+  return {parsed:parseModelContent(envelope),usage:envelope.usage||null};
+}
+
 async function callGeotechMiniMax(env,body){
   if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
   const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,""),model=env.MINIMAX_MODEL||"MiniMax-M3";
@@ -965,8 +986,18 @@ async function callGeotechMiniMax(env,body){
   })});
   const raw=await resp.text();if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,600));
   let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回非 JSON 响应")}
-  let parsed;try{parsed=parseModelContent(envelope)}catch(e){throw new Error("地勘条件结构化结果解析失败："+(e?.message||e))}
-  return {parsed,usage:envelope.usage||null,model,candidates};
+  try{
+    return {parsed:parseModelContent(envelope),usage:envelope.usage||null,model,candidates,repaired:false};
+  }catch(firstError){
+    const broken=modelContentAsText(envelope);
+    if(!broken)throw new Error("地勘条件结构化结果解析失败："+(firstError?.message||firstError));
+    try{
+      const repaired=await repairGeotechJson(env,model,broken);
+      return {parsed:repaired.parsed,usage:mergeUsage(envelope.usage||null,repaired.usage||null),model,candidates,repaired:true};
+    }catch(repairError){
+      throw new Error("地勘条件结构化结果解析失败："+(firstError?.message||firstError)+"；自动 JSON 修复也失败："+(repairError?.message||repairError));
+    }
+  }
 }
 
 function numericTokens(text){
@@ -1021,8 +1052,8 @@ async function handleGeotechConditions(request,env){
   let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
   const error=validateGeotechPayload(body);if(error)return json({error},400);
   try{
-    const {parsed,usage,model,candidates}=await callGeotechMiniMax(env,body);
-    return json({ok:true,result:normalizeGeotechResult(parsed,candidates,body),usage,model});
+    const {parsed,usage,model,candidates,repaired}=await callGeotechMiniMax(env,body);
+    return json({ok:true,result:normalizeGeotechResult(parsed,candidates,body),usage,model,structuredRepair:Boolean(repaired)});
   }catch(e){console.error("geotech_conditions_failed",e);return json({error:e?.message||"地勘条件整理失败"},502)}
 }
 
