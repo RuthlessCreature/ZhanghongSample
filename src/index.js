@@ -19,7 +19,8 @@ C. 【完整页面低精度图】用于理解上下文、构件关系和跨页/�
 5. 对疑似漏同步，必须说清：哪张图发生了什么、哪张关联图没有同步、证据是什么。
 6. 不根据图纸做法律/规范合规结论；可以提示“需复核防火/疏散/构造等影响”，但不得声称满足或违反某条规范，除非用户另行提供规范证据。
 7. 不确定时降低 confidence 并写“需人工复核”，禁止补造不存在的尺寸、房间、门窗或规范。
-8. 只输出严格 JSON，不要 Markdown，不要代码围栏。
+8. 对缩写或含义不唯一的标注（例如 CLR、CL、AFF 等），除非图纸文字明确给出方向/含义，否则必须保留原始标注并写“需人工确认含义”，禁止自行展开成“净宽”“净高”等具体含义。
+9. 只输出严格 JSON，不要 Markdown，不要代码围栏。
 
 输出结构：
 {
@@ -276,43 +277,6 @@ async function handleRegression(env){
   }
 }
 
-async function runHybridSelfTest(env){
-  if(!env.MINIMAX_API_KEY)throw new Error("MINIMAX_API_KEY missing");
-  const evidence={
-    exactTextChanges:[
-      {id:"T001",sheetId:"A-101",before:"23000",after:"23800",numeric:{before:23000,after:23800,delta:800}},
-      {id:"T002",sheetId:"A-101",before:"12000",after:"12800",numeric:{before:12000,after:12800,delta:800}},
-      {id:"T003",sheetId:"A-101",before:"MEETING ROOM 102",after:"CONFERENCE ROOM 102"},
-      {id:"T004",sheetId:"A-101",before:"STAIR CLR 1200",after:"STAIR CLR 1350",numeric:{before:1200,after:1350,delta:150}},
-      {id:"T005",sheetId:"A-101",before:"",after:"W03"},
-      {id:"T006",sheetId:"A-201",before:"",after:"NOTE: PLAN A-101 ADDS WINDOW W03. CHECK IF SOUTH ELEVATION REQUIRES UPDATE."},
-      {id:"T007",sheetId:"A-601",before:"",after:"REV B NOTE: VERIFY NEW WINDOW W03 IS ADDED TO THIS SCHEDULE."}
-    ],
-    assertion:"12000→12800 的差值必须严格认定为 +800，禁止写成 +500；W03 已在平面新增，但立面和门窗表均有需要同步核查的确定证据。"
-  };
-  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
-  const resp=await fetch(`${base}/chat/completions`,{
-    method:"POST",
-    headers:{Authorization:`Bearer ${env.MINIMAX_API_KEY}`,"content-type":"application/json"},
-    body:JSON.stringify({
-      model:env.MINIMAX_MODEL||"MiniMax-M3",
-      messages:[
-        {role:"system",content:SYSTEM_PROMPT},
-        {role:"user",content:`这是 Agent Hong 的确定性证据优先级自检。不要使用视觉猜测，只按以下程序证据输出正常 JSON 报告。\n${JSON.stringify(evidence)}`}
-      ],
-      temperature:0,
-      max_completion_tokens:3000,
-      reasoning_split:true,
-      thinking:{type:"adaptive"}
-    })
-  });
-  const raw=await resp.text();
-  if(!resp.ok)throw new Error(`MiniMax API ${resp.status}: ${raw.slice(0,600)}`);
-  const envelope=JSON.parse(raw);
-  const parsed=parseModelContent(envelope);
-  return {ok:true,parsed,usage:envelope.usage||null,model:env.MINIMAX_MODEL||"MiniMax-M3"};
-}
-
 async function handleCompare(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
@@ -331,9 +295,6 @@ export default {
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
-    if(url.pathname==="/api/selftest-hybrid"&&request.method==="GET"){
-      try{return json(await runHybridSelfTest(env));}catch(e){return json({ok:false,error:e?.message||"selftest failed",stack:String(e?.stack||"").slice(0,1200)})}
-    }
     if(url.pathname==="/api/__agent_hong_regression_1c7b"&&request.method==="GET")return handleRegression(env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
