@@ -916,7 +916,7 @@ const GEOTECH_SYSTEM_PROMPT=[
   "",
   "强制规则：",
   "1. conditions 必须覆盖指定的 12 个 key，每个 key 恰好一项。",
-  "2. found / needs_review 必须至少引用一个输入 candidates 中真实存在的 Gxxxx；没有有效引用必须 not_found。",
+  "2. found / needs_review 必须至少引用一个输入 candidates 中真实存在的 Gxxxx；没有有效引用必须 not_found。polarity=absent 表示原报告明确说明该类资料/参数未提供，它只能支持 not_found，不能支持 found。",
   "3. 精确数字、单位、标高、埋深、承载力、孔深、桩参数只能来自 citations 所引用的原文，禁止估算、换算、推断或补全。",
   "4. 不要把‘建议’改写成确定的设计值。例如报告说 recommended / 建议，应保留‘建议’属性。",
   "5. 不得自行确定基础形式、桩长、桩径、基坑支护形式或降水方案；只能整理报告已明确写出的条件/建议，并指出设计需复核什么。",
@@ -971,7 +971,8 @@ async function callGeotechMiniMax(env,body){
   const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,""),model=env.MINIMAX_MODEL||"MiniMax-M3";
   const candidates=safeArray(body.candidates).map(x=>({
     id:String(x.id),key:String(x.key),label:String(x.label||""),documentName:String(x.documentName||""),
-    pageNumber:Number(x.pageNumber||0),text:String(x.text||"").slice(0,3500),numbers:safeArray(x.numbers),depthRange:x.depthRange||null
+    pageNumber:Number(x.pageNumber||0),text:String(x.text||"").slice(0,3500),polarity:String(x.polarity||"positive"),
+    numbers:safeArray(x.numbers),depthRange:x.depthRange||null
   }));
   const user={
     projectName:String(body?.projectName||""),
@@ -1016,11 +1017,27 @@ function normalizeGeotechResult(parsed,candidates,body){
   const rawByKey=new Map(safeArray(parsed?.conditions).map(x=>[String(x?.key||""),x]));
   const conditions=GEOTECH_KEYS.map(key=>{
     const raw=rawByKey.get(key)||{};
+    const keyCandidates=candidates.filter(e=>e.key===key);
+    const positiveCandidates=keyCandidates.filter(e=>e.polarity!=="absent");
+    const absenceCandidates=keyCandidates.filter(e=>e.polarity==="absent");
     const citations=uniqStrings(safeArray(raw?.citations).map(String).filter(id=>valid.has(id))).slice(0,10);
-    const evs=citations.map(id=>valid.get(id));
-    let status=citations.length&&["found","needs_review"].includes(raw?.status)?raw.status:(citations.length?"found":"not_found");
-    let value=status==="not_found"?"未在当前报告证据中找到":String(raw?.value||"需人工复核");
-    let implication=status==="not_found"?"补充地勘资料或人工复核原报告。":String(raw?.designImplication||"需人工复核");
+    let evs=citations.map(id=>valid.get(id));
+    let status;
+    if(!positiveCandidates.length&&absenceCandidates.length){
+      status="not_found";
+      const absenceIds=absenceCandidates.slice(0,3).map(e=>e.id);
+      if(!citations.length){citations.push(...absenceIds);evs=citations.map(id=>valid.get(id));}
+    }else if(raw?.status==="not_found"){
+      status="not_found";
+    }else{
+      status=citations.length&&["found","needs_review"].includes(raw?.status)?raw.status:(citations.length?"found":"not_found");
+    }
+    let value=status==="not_found"
+      ?(absenceCandidates.length?"报告明确说明该类资料/参数未提供":"未在当前报告证据中找到")
+      :String(raw?.value||"需人工复核");
+    let implication=status==="not_found"
+      ?(absenceCandidates.length?"原报告明确未提供该类参数；需补充相应地勘资料或由岩土专业确认。":"补充地勘资料或人工复核原报告。")
+      :String(raw?.designImplication||"需人工复核");
     const badNums=unsupportedNumbers(value,evs);
     if(status!=="not_found"&&badNums.length){
       status="needs_review";
