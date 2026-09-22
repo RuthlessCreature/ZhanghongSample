@@ -573,6 +573,41 @@ function commentStatus(v){
   return ["implemented","partial","not_found","uncertain"].includes(v)?v:"uncertain";
 }
 
+function safeDeterministicClosureOverride(comment,ev){
+  if(!comment||!ev||ev.deterministicHint!=="likely-implemented")return null;
+  const text=String(comment.text||"");
+  const targets=safeArray(comment.targetSheets).filter(Boolean);
+  // Only hard-override narrowly scoped closure/removal comments. Multi-sheet comments still need M3.
+  if(targets.length>1)return null;
+  const removeIntent=/删除|取消|移除|关闭|清除|REMOVE|DELETE|CLOSE/i.test(text);
+  if(!removeIntent)return null;
+
+  const unresolved=/\b(CHECK|VERIFY|TBD|TBC|PENDING|HOLD)\b/i;
+  for(const cand of safeArray(ev.candidates)){
+    const sheet=String(cand?.sheetId||"");
+    if(targets.length===1 && sheet && sheet!==targets[0])continue;
+    const before=String(cand?.before||"");
+    const after=String(cand?.after||"");
+    if(cand?.type==="remove" && before.trim()){
+      return {
+        status:"implemented",
+        confidence:.99,
+        deterministicIds:[String(cand.id||"")].filter(Boolean),
+        reason:"程序精确 Diff 已确认目标旧内容从新图中删除。"
+      };
+    }
+    if(cand?.type==="replace" && unresolved.test(before) && !unresolved.test(after)){
+      return {
+        status:"implemented",
+        confidence:.99,
+        deterministicIds:[String(cand.id||"")].filter(Boolean),
+        reason:"程序精确 Diff 已确认旧的未闭环标记被移除或替换为已协调/已解决表述。"
+      };
+    }
+  }
+  return null;
+}
+
 function normalizeCommentResult(parsed,body){
   const comments=safeArray(body?.comments?.items);
   const validComments=new Map(comments.map(x=>[String(x.id),x]));
@@ -590,19 +625,23 @@ function normalizeCommentResult(parsed,body){
     const x=byId.get(String(comment.id))||{};
     const ev=evidenceMap.get(String(comment.id))||{};
     const ids=safeArray(x?.deterministicIds).filter(v=>typeof v==="string"&&validDiffs.has(v)).slice(0,16);
+    const override=safeDeterministicClosureOverride(comment,ev);
+    const status=override?.status||commentStatus(x?.status);
+    const mergedIds=uniqStrings(ids.concat(safeArray(override?.deterministicIds).filter(v=>validDiffs.has(v)))).slice(0,16);
     return {
       commentId:String(comment.id),
       originalComment:String(comment.text||""),
-      status:commentStatus(x?.status),
-      confidence:confidence(x?.confidence),
+      status,
+      confidence:override?Math.max(confidence(x?.confidence),override.confidence):confidence(x?.confidence),
       impactedSheets:uniqStrings(safeArray(x?.impactedSheets).map(String).concat(safeArray(comment.targetSheets).map(String))).slice(0,16),
-      conclusion:String(x?.conclusion||"模型未返回明确结论，需人工复核"),
+      conclusion:override?String(override.reason):String(x?.conclusion||"模型未返回明确结论，需人工复核"),
       oldEvidence:String(x?.oldEvidence||""),
       newEvidence:String(x?.newEvidence||""),
-      deterministicIds:ids,
-      missingSync:String(x?.missingSync||""),
-      reviewerAction:String(x?.reviewerAction||"人工复核该意见及相关图纸"),
-      deterministicHint:String(ev?.deterministicHint||"")
+      deterministicIds:mergedIds,
+      missingSync:override?"":String(x?.missingSync||""),
+      reviewerAction:override?"抽查对应图纸并确认无其他联动遗漏。":String(x?.reviewerAction||"人工复核该意见及相关图纸"),
+      deterministicHint:String(ev?.deterministicHint||""),
+      deterministicOverride:Boolean(override)
     };
   });
 
