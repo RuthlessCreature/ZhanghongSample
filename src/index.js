@@ -1046,7 +1046,7 @@ function normalizeBriefingResult(parsed,candidates,body){
     const raw=rawByKey.get(key)||{},items=[];
     let sectionNeedsReview=raw?.status==="needs_review";
     for(const item of safeArray(raw?.items)){
-      const citations=uniqStrings(safeArray(item?.citations).map(String).filter(id=>valid.has(id))).slice(0,12);
+      const citations=uniqStrings(safeArray(item?.citations).map(String).filter(id=>valid.has(id)&&String(valid.get(id)?.category||"")===key)).slice(0,12);
       if(!citations.length)continue;
       const evs=citations.map(id=>valid.get(id));
       const evidenceText=evs.map(e=>String(e.text||"").toUpperCase()).join(" | ");
