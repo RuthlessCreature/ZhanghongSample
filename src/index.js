@@ -520,7 +520,8 @@ export default {
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"agent-hong-v1.2",modules:["version-diff","drawing-review"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
-    if(url.pathname==="/api/__module02_v2_regression"&&request.method==="GET")return handleModule02Regression(env);\n    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
+    if(url.pathname==="/api/__module02_v2_regression"&&request.method==="GET")return handleModule02Regression(env);
+    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
