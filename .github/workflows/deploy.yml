@@ -24,8 +24,13 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Sync MiniMax secret
-        if: ${{ secrets.MINIMAX_API_KEY != '' }}
-        run: echo "$MINIMAX_API_KEY" | npx wrangler secret put MINIMAX_API_KEY
+        shell: bash
+        run: |
+          if [ -n "$MINIMAX_API_KEY" ]; then
+            printf '%s' "$MINIMAX_API_KEY" | npx wrangler secret put MINIMAX_API_KEY
+          else
+            echo "MINIMAX_API_KEY secret not configured; skipping Worker secret sync."
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
