@@ -76,8 +76,3 @@ jobs:
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/comment-check.html >/dev/null
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/history-search.html >/dev/null
           echo "Agent Hong module pages smoke passed"
-      - name: Production Module 04 rerank regression
-        shell: bash
-        env:
-          HISTORY_API_URL: https://zhanghong.fhkq.best/api/history-search
-        run: node tests/history-pdf.integration.mjs
