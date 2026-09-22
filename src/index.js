@@ -277,7 +277,7 @@ async function handleRegression(env){
 }
 
 async function runHybridSelfTest(env){
-  const px="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nAAAAABJRU5ErkJggg==";
+  const px="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAkElEQVR4nO3aSwqAMAwAUSPe/8px0W39QNQhMm9bkA4Ruklk5tLZSl+gygCaATQDaNvRQUR8eY87pk/Wfycw1N/pMcnid05+h/YTMIBmAM0AmgE0A2gG0AygGUAzgGYAzQCaATQDaAbQDKAZQDOAZgDNAJoBNANo7QMulj2eWrp5b3mn/QTCxVeYATQDaO0DdmrWD4URKp9YAAAAAElFTkSuQmCC";
   const mkPages=()=>[
     {pageNumber:1,image:px,sheetId:"A-101",textItemCount:30},
     {pageNumber:2,image:px,sheetId:"A-201",textItemCount:20},
