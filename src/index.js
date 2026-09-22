@@ -272,7 +272,7 @@ async function handleRegression(env){
     };
     return json({ok:Object.values(checks).every(Boolean),checks,result,usage,model});
   }catch(e){
-    return json({ok:false,error:e?.message||"regression failed"},502);
+    return json({ok:false,error:e?.message||"regression failed",stage:"production-regression"});
   }
 }
 
