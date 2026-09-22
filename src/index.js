@@ -277,40 +277,40 @@ async function handleRegression(env){
 }
 
 async function runHybridSelfTest(env){
-  const px="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAkElEQVR4nO3aSwqAMAwAUSPe/8px0W39QNQhMm9bkA4Ruklk5tLZSl+gygCaATQDaNvRQUR8eY87pk/Wfycw1N/pMcnid05+h/YTMIBmAM0AmgE0A2gG0AygGUAzgGYAzQCaATQDaAbQDKAZQDOAZgDNAJoBNANo7QMulj2eWrp5b3mn/QTCxVeYATQDaO0DdmrWD4URKp9YAAAAAElFTkSuQmCC";
-  const mkPages=()=>[
-    {pageNumber:1,image:px,sheetId:"A-101",textItemCount:30},
-    {pageNumber:2,image:px,sheetId:"A-201",textItemCount:20},
-    {pageNumber:3,image:px,sheetId:"A-601",textItemCount:40}
-  ];
-  const textChanges=[
-    {id:"T001",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"23000",after:"23800",numeric:{before:23000,after:23800,delta:800},position:{x:.5,y:.1},matchConfidence:.99},
-    {id:"T002",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"12000",after:"12800",numeric:{before:12000,after:12800,delta:800},position:{x:.4,y:.13},matchConfidence:.99},
-    {id:"T003",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"MEETING ROOM 102",after:"CONFERENCE ROOM 102",numeric:null,position:{x:.65,y:.42},matchConfidence:.99},
-    {id:"T004",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"STAIR CLR 1200",after:"STAIR CLR 1350",numeric:{before:1200,after:1350,delta:150},position:{x:.58,y:.65},matchConfidence:.99},
-    {id:"T005",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"1. Grid/partition adjusted +800.",after:"1. Grid/partition adjusted +800.",numeric:null,position:{x:.8,y:.15},matchConfidence:1},
-    {id:"T006",sheetId:"A-101",pageA:1,pageB:1,type:"add",before:"",after:"W03",numeric:null,position:{x:.75,y:.82},matchConfidence:1},
-    {id:"T007",sheetId:"A-201",pageA:2,pageB:2,type:"add",before:"",after:"NOTE: PLAN A-101 ADDS WINDOW W03. CHECK IF SOUTH ELEVATION REQUIRES UPDATE.",numeric:null,position:{x:.58,y:.2},matchConfidence:1},
-    {id:"T008",sheetId:"A-601",pageA:3,pageB:3,type:"add",before:"",after:"REV B NOTE: VERIFY NEW WINDOW W03 IS ADDED TO THIS SCHEDULE.",numeric:null,position:{x:.4,y:.78},matchConfidence:1}
-  ];
-  const body={
-    projectName:"Agent Hong Hybrid Self Test",
-    notes:"验证确定性证据优先级：严禁把 +800 误读成 +500；检查 W03 跨图同步。",
-    versionA:{name:"A.pdf",type:"pdf",sourcePages:3,pages:mkPages()},
-    versionB:{name:"B.pdf",type:"pdf",sourcePages:3,pages:mkPages()},
-    deterministic:{
-      pagePairs:[
-        {pageA:0,pageB:0,sheetId:"A-101",method:"sheet-id"},
-        {pageA:1,pageB:1,sheetId:"A-201",method:"sheet-id"},
-        {pageA:2,pageB:2,sheetId:"A-601",method:"sheet-id"}
-      ],
-      textCoverage:{itemsA:90,itemsB:98,mode:"hybrid"},
-      textChanges,
-      visualRegions:[]
-    }
+  if(!env.MINIMAX_API_KEY)throw new Error("MINIMAX_API_KEY missing");
+  const evidence={
+    exactTextChanges:[
+      {id:"T001",sheetId:"A-101",before:"23000",after:"23800",numeric:{before:23000,after:23800,delta:800}},
+      {id:"T002",sheetId:"A-101",before:"12000",after:"12800",numeric:{before:12000,after:12800,delta:800}},
+      {id:"T003",sheetId:"A-101",before:"MEETING ROOM 102",after:"CONFERENCE ROOM 102"},
+      {id:"T004",sheetId:"A-101",before:"STAIR CLR 1200",after:"STAIR CLR 1350",numeric:{before:1200,after:1350,delta:150}},
+      {id:"T005",sheetId:"A-101",before:"",after:"W03"},
+      {id:"T006",sheetId:"A-201",before:"",after:"NOTE: PLAN A-101 ADDS WINDOW W03. CHECK IF SOUTH ELEVATION REQUIRES UPDATE."},
+      {id:"T007",sheetId:"A-601",before:"",after:"REV B NOTE: VERIFY NEW WINDOW W03 IS ADDED TO THIS SCHEDULE."}
+    ],
+    assertion:"12000→12800 的差值必须严格认定为 +800，禁止写成 +500；W03 已在平面新增，但立面和门窗表均有需要同步核查的确定证据。"
   };
-  const {parsed,usage,model}=await callMiniMax(env,body);
-  return {ok:true,result:normalizeModelResult(parsed,body),usage,model};
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
+  const resp=await fetch(`${base}/chat/completions`,{
+    method:"POST",
+    headers:{Authorization:`Bearer ${env.MINIMAX_API_KEY}`,"content-type":"application/json"},
+    body:JSON.stringify({
+      model:env.MINIMAX_MODEL||"MiniMax-M3",
+      messages:[
+        {role:"system",content:SYSTEM_PROMPT},
+        {role:"user",content:`这是 Agent Hong 的确定性证据优先级自检。不要使用视觉猜测，只按以下程序证据输出正常 JSON 报告。\n${JSON.stringify(evidence)}`}
+      ],
+      temperature:0,
+      max_completion_tokens:3000,
+      reasoning_split:true,
+      thinking:{type:"adaptive"}
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error(`MiniMax API ${resp.status}: ${raw.slice(0,600)}`);
+  const envelope=JSON.parse(raw);
+  const parsed=parseModelContent(envelope);
+  return {ok:true,parsed,usage:envelope.usage||null,model:env.MINIMAX_MODEL||"MiniMax-M3"};
 }
 
 async function handleCompare(request,env){
