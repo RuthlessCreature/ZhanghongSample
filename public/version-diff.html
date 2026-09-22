@@ -7,6 +7,7 @@
   <title>Agent Hong｜施工图版本变更分析</title>
   <meta name="description" content="Agent Hong：建筑施工图版本变更、确定性文字差异与跨图漏同步检查。" />
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/product-theme.css">
 </head>
 <body>
   <div class="blueprint"></div>
@@ -18,10 +19,10 @@
   <main>
     <section class="hero">
       <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 01</div>
-      <h1>版本变更，<br><em>别再靠肉眼硬找。</em></h1>
-      <p>Agent Hong 先用程序精确比对 PDF 文字和数字，再定位图像变化区域，最后让 MiniMax M3 做工程语义与跨图一致性校核。</p>
+      <h1>版本变更核对，<br><em>从差异定位到跨图一致性。</em></h1>
+      <p>系统先对 PDF 文字层和关键数字进行确定性比对，再定位视觉变化区域，并结合图号与跨页关系复核关联图纸是否同步。</p>
       <div class="hero-note">当前只做一件事：<strong>施工图版本变更分析</strong></div>
-      <div class="engine-strip"><span>PDF TEXT DIFF</span><b>→</b><span>VISUAL REGION DIFF</span><b>→</b><span>M3 ENGINEERING REVIEW</span></div>
+      <div class="engine-strip"><span>PDF TEXT DIFF</span><b>→</b><span>VISUAL REGION DIFF</span><b>→</b><span>ENGINEERING CONSISTENCY</span></div>
     </section>
 
     <section class="workspace" id="workspace">
@@ -41,7 +42,7 @@
 
     <section class="progress hidden" id="progress">
       <div class="scanner"></div><div class="progress-copy"><div class="eyebrow">AGENT HONG IS WORKING</div><h2 id="progressTitle">正在读取图纸…</h2><p id="progressText">先从 PDF 文字层拿到可靠的尺寸、编号和文字。</p></div>
-      <div class="progress-steps"><span class="active" id="p1">01 读取</span><span id="p2">02 文字Diff</span><span id="p3">03 视觉Diff</span><span id="p4">04 AI校核</span></div>
+      <div class="progress-steps"><span class="active" id="p1">01 读取</span><span id="p2">02 文字Diff</span><span id="p3">03 视觉Diff</span><span id="p4">04 工程语义复核</span></div>
     </section>
 
     <section class="results hidden" id="results">
@@ -65,7 +66,7 @@
       <div class="disclaimer">Agent Hong 用于辅助版本核对。确定性文字层可减少数字误读，但图形语义与跨图关系仍需专业人员复核；本工具不替代注册执业人员或法定施工图审查。</div>
     </section>
   </main>
-  <footer><span>AGENT HONG</span><span>Deterministic first. AI second.</span></footer>
+  <footer><span>AGENT HONG</span><span>Evidence first. Human decision retained.</span></footer>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
