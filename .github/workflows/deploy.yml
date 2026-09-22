@@ -56,23 +56,3 @@ jobs:
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/version-diff.html >/dev/null
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/drawing-review.html >/dev/null
           echo "Agent Hong module pages smoke passed"
-      - name: Temporary Module 02 V2 regression
-        shell: bash
-        run: |
-          set -euo pipefail
-          body="$(curl -fsS --retry 4 --retry-delay 6 --max-time 240 https://zhanghong.fhkq.best/api/__module02_v2_regression)"
-          printf '%s\n' "$body"
-          printf '%s' "$body" | node -e '
-            let s="";
-            process.stdin.on("data",d=>s+=d);
-            process.stdin.on("end",()=>{
-              const x=JSON.parse(s);
-              if(!x.ok) throw new Error("overall regression failed");
-              for(const [group,obj] of Object.entries({bad:x.bad?.checks,clean:x.clean?.checks})){
-                for(const [k,v] of Object.entries(obj||{})){
-                  if(!v) throw new Error(group+" regression failed: "+k);
-                }
-              }
-              console.log("Module 02 V2 bad-clean regression passed");
-            });
-          '
