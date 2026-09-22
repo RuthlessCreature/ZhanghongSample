@@ -239,15 +239,15 @@ const REVIEW_SYSTEM_PROMPT = [
   "8. 只输出严格 JSON，不要 Markdown，不要代码围栏。",
   "",
   "输出 JSON：",
-  "{",
-  "  \\"summary\\":\\"一句话摘要\\",",
-  "  \\"overall\\":\\"2-4句话整体判断\\",",
-  "  \\"issues\\":[{\\"id\\":\\"I01\\",\\"severity\\":\\"high|medium|low\\",\\"category\\":\\"图号/图框|门窗一致性|跨图一致性|尺寸/标高|编号/索引|文字说明|未闭环标记|构件/空间|规范待核|其他\\",\\"location\\":\\"图号/页码/位置\\",\\"issue\\":\\"问题\\",\\"evidence\\":\\"证据\\",\\"why\\":\\"为什么值得看\\",\\"action\\":\\"复核动作\\",\\"evidenceSource\\":\\"pdf_text|mixed|visual|ai|reference\\",\\"deterministicIds\\":[\\"P001\\"],\\"confidence\\":0.0}],",
-  "  \\"crossSheetRisks\\":[{\\"id\\":\\"X01\\",\\"severity\\":\\"high|medium|low\\",\\"category\\":\\"跨图一致性\\",\\"location\\":\\"A-101 ↔ A-601\\",\\"issue\\":\\"风险\\",\\"evidence\\":\\"证据\\",\\"why\\":\\"影响\\",\\"action\\":\\"复核动作\\",\\"evidenceSource\\":\\"mixed|pdf_text|visual|ai|reference\\",\\"deterministicIds\\":[\\"P001\\"],\\"confidence\\":0.0}],",
-  "  \\"checklist\\":[\\"人工复核动作\\"],",
-  "  \\"limitations\\":[\\"分析局限\\"],",
-  "  \\"sheetSummary\\":[{\\"sheetId\\":\\"A-101\\",\\"page\\":1,\\"role\\":\\"plan|elevation|section|schedule|detail|notes|other\\",\\"note\\":\\"该页关键内容/风险\\"}]",
-  "}"
+  '{',
+  '  "summary":"一句话摘要",',
+  '  "overall":"2-4句话整体判断",',
+  '  "issues":[{"id":"I01","severity":"high|medium|low","category":"图号/图框|门窗一致性|跨图一致性|尺寸/标高|编号/索引|文字说明|未闭环标记|构件/空间|规范待核|其他","location":"图号/页码/位置","issue":"问题","evidence":"证据","why":"为什么值得看","action":"复核动作","evidenceSource":"pdf_text|mixed|visual|ai|reference","deterministicIds":["P001"],"confidence":0.0}],',
+  '  "crossSheetRisks":[{"id":"X01","severity":"high|medium|low","category":"跨图一致性","location":"A-101 ↔ A-601","issue":"风险","evidence":"证据","why":"影响","action":"复核动作","evidenceSource":"mixed|pdf_text|visual|ai|reference","deterministicIds":["P001"],"confidence":0.0}],',
+  '  "checklist":["人工复核动作"],',
+  '  "limitations":["分析局限"],',
+  '  "sheetSummary":[{"sheetId":"A-101","page":1,"role":"plan|elevation|section|schedule|detail|notes|other","note":"该页关键内容/风险"}]',
+  '}'
 ].join("\\n");
 
 function validateReviewPayload(body){
