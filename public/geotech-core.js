@@ -66,7 +66,7 @@ export function buildGeotechEvidence(pages=[],meta={}){
       const nums=extractGeotechNumbers(text),range=extractDepthRange(text);
       for(const hit of hits.slice(0,3)){
         evidence.push({
-          id:"G"+String(seq++).padStart(4,"0"),
+          id:String(meta.documentId||"doc")+":G"+String(seq++).padStart(4,"0"),
           key:hit.key,label:hit.label,
           pageNumber:pageNo,
           documentName:String(meta.documentName||"geotech.pdf"),
