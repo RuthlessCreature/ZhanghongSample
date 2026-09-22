@@ -45,6 +45,17 @@ export function extractDepthRange(text=""){
   return m?{min:Number(m[1]),max:Number(m[2]),unit:"m",raw:m[0]}:null;
 }
 
+export function geotechEvidencePolarity(line=""){
+  const s=upper(line);
+  const absent=[
+    /\bNOT\s+(?:PROVIDED|AVAILABLE|INCLUDED|GIVEN|SPECIFIED)\b/,
+    /\bDOES\s+NOT\s+PROVIDE\b/,
+    /\bNO\s+[^.]{0,80}\b(?:RECOMMENDATION|PARAMETER|DATA|INFORMATION)\b[^.]{0,30}\b(?:IS|ARE|WAS|WERE)?\s*(?:PROVIDED|AVAILABLE|GIVEN)?\b/,
+    /未提供|未给出|未包含|暂无.{0,20}(?:资料|参数|建议)|无.{0,20}(?:建议|参数|资料)/
+  ];
+  return absent.some(re=>re.test(s))?"absent":"positive";
+}
+
 function meaningfulLine(line=""){
   const s=norm(line);
   if(s.length<5)return false;
@@ -71,6 +82,7 @@ export function buildGeotechEvidence(pages=[],meta={}){
           pageNumber:pageNo,
           documentName:String(meta.documentName||"geotech.pdf"),
           text,score:hit.score,
+          polarity:geotechEvidencePolarity(text),
           numbers:nums,depthRange:range
         });
       }
@@ -91,14 +103,19 @@ function dedupeEvidence(xs){
 export function groupGeotechEvidence(evidence=[]){
   const groups={};for(const k of GEOTECH_KEYS)groups[k]=[];
   for(const e of evidence||[]){if(groups[e.key])groups[e.key].push(e)}
-  for(const k of GEOTECH_KEYS)groups[k].sort((a,b)=>b.score-a.score||a.pageNumber-b.pageNumber);
+  for(const k of GEOTECH_KEYS)groups[k].sort((a,b)=>{
+    const ap=a.polarity==="absent"?1:0,bp=b.polarity==="absent"?1:0;
+    return ap-bp||b.score-a.score||a.pageNumber-b.pageNumber;
+  });
   return groups;
 }
 
 export function selectGeotechEvidence(evidence=[],max=36){
   const groups=groupGeotechEvidence(evidence),out=[],seen=new Set();
   for(const k of GEOTECH_KEYS){
-    for(const e of groups[k].slice(0,3)){
+    const positives=groups[k].filter(e=>e.polarity!=="absent").slice(0,3);
+    const absences=groups[k].filter(e=>e.polarity==="absent").slice(0,1);
+    for(const e of [...positives,...(positives.length?[]:absences)]){
       if(!seen.has(e.id)){seen.add(e.id);out.push(e)}
     }
   }
@@ -111,9 +128,13 @@ export function selectGeotechEvidence(evidence=[],max=36){
 }
 
 export function summarizeGeotechCoverage(evidence=[]){
-  const groups=groupGeotechEvidence(evidence),found={},missing=[];
-  for(const k of GEOTECH_KEYS){found[k]=groups[k].length;if(!groups[k].length)missing.push(k)}
-  return {total:evidence.length,found,missing,covered:GEOTECH_KEYS.length-missing.length,totalKeys:GEOTECH_KEYS.length};
+  const groups=groupGeotechEvidence(evidence),found={},absent={},missing=[];
+  for(const k of GEOTECH_KEYS){
+    found[k]=groups[k].filter(e=>e.polarity!=="absent").length;
+    absent[k]=groups[k].filter(e=>e.polarity==="absent").length;
+    if(!found[k])missing.push(k);
+  }
+  return {total:evidence.length,found,absent,missing,covered:GEOTECH_KEYS.length-missing.length,totalKeys:GEOTECH_KEYS.length};
 }
 
 export function normalizeConditionSet(result={},candidateEvidence=[]){
