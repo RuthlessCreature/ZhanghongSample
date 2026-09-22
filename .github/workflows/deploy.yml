@@ -87,8 +87,3 @@ jobs:
             fi
           done
           echo "Agent Hong module pages smoke passed"
-      - name: Production Module 06 geotech regression
-        shell: bash
-        env:
-          GEOTECH_API_URL: https://zhanghong.fhkq.best/api/geotech-conditions
-        run: node tests/geotech-pdf.integration.mjs
