@@ -1,12 +1,13 @@
 {
   "name": "agent-hong",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "check": "node --check src/index.js && node --check public/app.js"
+    "test": "node tests/diff-core.test.mjs",
+    "check": "node --check src/index.js && node --check public/app.js && node --check public/diff-core.js && node --check tests/diff-core.test.mjs && npm test"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
