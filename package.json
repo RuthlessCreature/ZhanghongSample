@@ -1,15 +1,17 @@
 {
   "name": "agent-hong",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node tests/diff-core.test.mjs && node tests/review-core.test.mjs",
-    "check": "node --check src/index.js && node --check public/app.js && node --check public/diff-core.js && node --check public/review-core.js && node --check public/review.js && node --check tests/diff-core.test.mjs && node --check tests/review-core.test.mjs && npm test"
+    "test": "node tests/diff-core.test.mjs && node tests/review-core.test.mjs && node tests/review-pdf.integration.mjs",
+    "check": "node --check src/index.js && node --check public/app.js && node --check public/diff-core.js && node --check public/review-core.js && node --check public/review.js && node --check tests/diff-core.test.mjs && node --check tests/review-core.test.mjs && node --check tests/review-pdf.integration.mjs && npm test"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.0.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38"
   }
 }

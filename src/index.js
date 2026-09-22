@@ -219,46 +219,59 @@ function normalizeModelResult(parsed, body) {
 }
 
 
+const MAX_REVIEW_IMAGES=10;
+const MAX_REVIEW_SCANNED=30;
+const MAX_REFERENCE_CHUNKS=80;
+const MAX_REFERENCE_CHARS=65000;
+
 const REVIEW_SYSTEM_PROMPT = [
-  "你是 Agent Hong 的建筑施工图 AI 预审引擎。你的职责是先帮助设计院发现明显问题和跨图不一致，不替代设计负责人、注册执业人员或法定施工图审查。",
+  "你是 Agent Hong 的建筑施工图 AI 预审引擎。你的职责是帮助设计院在人工终审前发现明显问题、未闭环事项和跨图不一致；你不是法定施工图审查机构。",
   "",
-  "你会收到四类证据：",
+  "输入证据分层：",
   "A. deterministic.alerts：程序从 PDF 文字层和规则引擎得到的硬检查结果，优先级最高。",
-  "B. drawing.pages[].textDigest：PDF 文字层摘要；精确编号、文字、尺寸若引用，优先使用这里或 A 类。",
-  "C. drawing.pages[].image：完整页面低精度图，用于理解图形、空间、构件和跨图关系。",
-  "D. reference.text：用户可选上传的院标、甲方要求或审查要点。只有这里明确存在的依据，才允许说‘不符合用户提供的依据’。",
+  "B. deterministic.sheets / indices：最多前30页的图号、图种、门窗、房间、跨图引用等文字索引。",
+  "C. drawing.pages：程序按风险和图种挑选的最多10个关键页图像 + 文字摘要，用于视觉/工程语义复核。",
+  "D. reference.chunks：用户提供的院标、甲方要求、项目要求片段，每条有 R001 / R002 等ID。",
   "",
   "强制规则：",
-  "1. 没有 reference.text 时，禁止声称‘违反规范’‘符合规范’或编造任何条文编号。最多写‘需按适用规范/院标复核’。",
-  "2. 程序硬检查结果不得被视觉 OCR 覆盖；编号、图号、门窗号等冲突以程序文字证据优先。",
-  "3. 重点检查：图号/图框、门窗编号与门窗表、平立剖一致性、房间名称/编号、详图索引、文字说明、CHECK/VERIFY/TBD 等未闭环项、明显尺寸/标高表达风险。",
-  "4. 不要为了凑数量重复 deterministic.alerts；AI issues 应补充工程语义、视觉问题或 deterministic 问题的实际影响。",
-  "5. 对跨图问题，要明确指出涉及哪些图号/页、为什么怀疑不一致、下一步怎么复核。",
-  "6. 对 CLR、CL、AFF 等多义缩写保持原文；图纸未明确含义时不得自行展开。",
-  "7. 看不清或证据不足时必须降低 confidence 并写‘需人工复核’，不得补造尺寸、构件或规范。",
-  "8. 只输出严格 JSON，不要 Markdown，不要代码围栏。",
+  "1. 没有 reference.chunks 时，禁止声称‘违反规范’‘符合规范’或编造条文；只能写‘需按适用规范/院标复核’。",
+  "2. 如果问题直接依赖用户要求，必须在 referenceIds 填真实存在的 Rxxx；不得编造不存在的引用ID。",
+  "3. 程序硬检查不得被视觉 OCR 覆盖。图号、门窗号、房间号、文字冲突优先相信 deterministic 文字证据。",
+  "4. 不要原样重复硬检查凑数量。AI issues 应补充：工程影响、跨图关系、视觉证据或需要人工做的具体动作。",
+  "5. 重点检查：图纸目录↔实际图号、平面↔门窗表、平面↔立面/剖面、房间编号/名称、详图/索引引用、文字说明、CHECK/VERIFY/TBD/PENDING/HOLD 等未闭环项。",
+  "6. 对门窗跨图判断要克制：没有方向/立面归属证据时，不要武断地说某个窗必须出现在某一张立面；若有明确 NOTE / CHECK / reference 要求则可提高置信度。",
+  "7. 对 CLR、CL、AFF 等多义缩写保持原文；图纸未明确含义时不得自行展开成净高/净宽等。",
+  "8. 对看不清或证据不足的视觉信息降低 confidence 并写‘需人工复核’，不得补造尺寸、构件、材料或规范。",
+  "9. 一般性说明中出现 CHECK/VERIFY 等词不等于未闭环；以 deterministic.alerts 为准。",
+  "10. 只输出严格 JSON，不要 Markdown，不要代码围栏。",
   "",
   "输出 JSON：",
-  '{',
-  '  "summary":"一句话摘要",',
-  '  "overall":"2-4句话整体判断",',
-  '  "issues":[{"id":"I01","severity":"high|medium|low","category":"图号/图框|门窗一致性|跨图一致性|尺寸/标高|编号/索引|文字说明|未闭环标记|构件/空间|规范待核|其他","location":"图号/页码/位置","issue":"问题","evidence":"证据","why":"为什么值得看","action":"复核动作","evidenceSource":"pdf_text|mixed|visual|ai|reference","deterministicIds":["P001"],"confidence":0.0}],',
-  '  "crossSheetRisks":[{"id":"X01","severity":"high|medium|low","category":"跨图一致性","location":"A-101 ↔ A-601","issue":"风险","evidence":"证据","why":"影响","action":"复核动作","evidenceSource":"mixed|pdf_text|visual|ai|reference","deterministicIds":["P001"],"confidence":0.0}],',
-  '  "checklist":["人工复核动作"],',
-  '  "limitations":["分析局限"],',
-  '  "sheetSummary":[{"sheetId":"A-101","page":1,"role":"plan|elevation|section|schedule|detail|notes|other","note":"该页关键内容/风险"}]',
-  '}'
-].join("\\n");
+  "{",
+  "  \"summary\":\"一句话摘要\",",
+  "  \"overall\":\"2-4句话整体判断\",",
+  "  \"issues\":[{\"id\":\"I01\",\"severity\":\"high|medium|low\",\"category\":\"图号/图框|图纸目录|门窗一致性|房间编号/名称|跨图一致性|尺寸/标高|编号/索引|文字说明|未闭环标记|构件/空间|依据待核|其他\",\"location\":\"图号/页码/位置\",\"issue\":\"问题\",\"evidence\":\"证据\",\"why\":\"为什么值得看\",\"action\":\"复核动作\",\"evidenceSource\":\"pdf_text|mixed|visual|ai|reference\",\"deterministicIds\":[\"P001\"],\"referenceIds\":[\"R001\"],\"confidence\":0.0}],",
+  "  \"crossSheetRisks\":[{\"id\":\"X01\",\"severity\":\"high|medium|low\",\"category\":\"跨图一致性\",\"location\":\"A-101 ↔ A-601\",\"issue\":\"风险\",\"evidence\":\"证据\",\"why\":\"影响\",\"action\":\"复核动作\",\"evidenceSource\":\"mixed|pdf_text|visual|ai|reference\",\"deterministicIds\":[\"P001\"],\"referenceIds\":[\"R001\"],\"confidence\":0.0}],",
+  "  \"checklist\":[\"按优先级排列的人工复核动作\"],",
+  "  \"limitations\":[\"本次分析局限\"],",
+  "  \"sheetSummary\":[{\"sheetId\":\"A-101\",\"page\":2,\"role\":\"plan\",\"note\":\"该页关键内容/风险\"}]",
+  "}"
+].join("\n");
 
 function validateReviewPayload(body){
   if(!body||typeof body!=="object")return "请求体无效";
   const d=body.drawing;
-  if(!d||!Array.isArray(d.pages)||!d.pages.length)return "缺少施工图页面";
-  if(d.pages.length>MAX_PAGES)return "施工图最多支持前 "+MAX_PAGES+" 页";
+  if(!d||!Array.isArray(d.pages)||!d.pages.length)return "缺少施工图关键页";
+  if(d.pages.length>MAX_REVIEW_IMAGES)return "M3 视觉关键页最多 "+MAX_REVIEW_IMAGES+" 页";
+  if(Number(d.scannedPages||d.pages.length)>MAX_REVIEW_SCANNED)return "施工图文字预扫最多 "+MAX_REVIEW_SCANNED+" 页";
   for(const p of d.pages)if(!p||!validImage(p.image))return "施工图页面格式无效";
-  if(String(body?.reference?.text||"").length>38000)return "参考资料文字过长";
+  const sheets=safeArray(body?.deterministic?.sheets);
+  if(sheets.length>MAX_REVIEW_SCANNED)return "程序图纸索引超过限制";
   const alerts=safeArray(body?.deterministic?.alerts);
-  if(alerts.length>100)return "程序硬检查结果过多";
+  if(alerts.length>140)return "程序硬检查结果过多";
+  const refText=String(body?.reference?.text||"");
+  if(refText.length>MAX_REFERENCE_CHARS)return "参考资料文字过长";
+  const chunks=safeArray(body?.reference?.chunks);
+  if(chunks.length>MAX_REFERENCE_CHUNKS)return "参考资料片段过多";
   const total=d.pages.reduce((n,p)=>n+dataUrlBytes(p.image),0);
   if(total>34*1024*1024)return "预处理后的施工图图像超过 34MB";
   return null;
@@ -268,28 +281,38 @@ function reviewEvidenceForPrompt(body){
   const d=body?.deterministic||{};
   return {
     textCoverage:d.textCoverage||{},
-    sheets:safeArray(d.sheets).slice(0,MAX_PAGES),
-    alerts:safeArray(d.alerts).slice(0,100),
+    sheets:safeArray(d.sheets).slice(0,MAX_REVIEW_SCANNED),
+    alerts:safeArray(d.alerts).slice(0,140),
     indices:d.indices||{},
     fullyLoaded:Boolean(d.fullyLoaded)
   };
 }
 
+function compactReference(body){
+  return safeArray(body?.reference?.chunks).slice(0,MAX_REFERENCE_CHUNKS).map(x=>({
+    id:String(x?.id||""),
+    page:Number.isFinite(Number(x?.page))?Number(x.page):null,
+    text:String(x?.text||"").slice(0,1100)
+  })).filter(x=>/^R\d{3}$/.test(x.id)&&x.text);
+}
+
 function buildReviewContent(body){
   const content=[];
   const evidence=reviewEvidenceForPrompt(body);
-  const referenceText=String(body?.reference?.text||"");
+  const refs=compactReference(body);
   content.push({type:"text",text:
     "项目："+(body.projectName||"未填写")+
-    "\\n重点关注："+(body.focus||"无")+
-    "\\n\\n程序硬检查 JSON：\\n"+JSON.stringify(evidence)+
-    "\\n\\n用户参考资料："+(referenceText?("\\n"+referenceText):"未提供。不得输出规范符合/违反结论。")
+    "\n重点关注："+(body.focus||"无")+
+    "\n\n程序硬检查与全局文字索引：\n"+JSON.stringify(evidence)+
+    "\n\n用户项目依据片段：\n"+(refs.length?JSON.stringify(refs):"未提供。不得输出规范/院标符合或违反结论。")+
+    "\n\n视觉选页信息："+JSON.stringify(body?.drawing?.selection||[])
   });
   safeArray(body?.drawing?.pages).forEach((p,i)=>{
     content.push({type:"text",text:
-      "施工图第 "+(i+1)+" 页｜图号 "+(p.sheetId||"未识别")+
-      "\\nPDF文字层摘要："+String(p.textDigest||"")+
-      (p.textDigestTruncated?"\\n[文字摘要已截断]":"")
+      "关键页 "+(i+1)+" / "+body.drawing.pages.length+
+      "｜原PDF第 "+(p.pageNumber||"?")+" 页｜图号 "+(p.sheetId||"未识别")+
+      "\nPDF文字层摘要："+String(p.textDigest||"")+
+      (p.textDigestTruncated?"\n[文字摘要已截断]":"")
     });
     content.push({type:"image_url",image_url:{url:p.image,detail:"default",max_long_side_pixel:1250}});
   });
@@ -306,14 +329,14 @@ async function callReviewMiniMax(env,body){
     body:JSON.stringify({
       model,
       messages:[{role:"system",content:REVIEW_SYSTEM_PROMPT},{role:"user",content:buildReviewContent(body)}],
-      temperature:.1,
-      max_completion_tokens:7000,
+      temperature:.08,
+      max_completion_tokens:8000,
       reasoning_split:true,
       thinking:{type:"adaptive"}
     })
   });
   const raw=await resp.text();
-  if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,600));
+  if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,700));
   let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回了非 JSON 响应")}
   let parsed;try{parsed=parseModelContent(envelope)}catch(e){throw new Error("预审结构化结果解析失败："+(e?.message||e))}
   return {parsed,usage:envelope.usage||null,model};
@@ -321,7 +344,12 @@ async function callReviewMiniMax(env,body){
 
 function reviewSource(v,fallback="ai"){return ["pdf_text","mixed","visual","ai","reference"].includes(v)?v:fallback}
 
-function normalizeReviewIssue(x,i,prefix){
+function validReferenceIds(body){
+  return new Set(compactReference(body).map(x=>x.id));
+}
+
+function normalizeReviewIssue(x,i,prefix,body){
+  const refs=validReferenceIds(body);
   return {
     id:String(x?.id||(prefix+String(i+1).padStart(2,"0"))),
     severity:severity(x?.severity),
@@ -332,35 +360,57 @@ function normalizeReviewIssue(x,i,prefix){
     why:String(x?.why||"需人工复核"),
     action:String(x?.action||"人工复核"),
     evidenceSource:reviewSource(x?.evidenceSource,"ai"),
-    deterministicIds:safeArray(x?.deterministicIds).filter(v=>typeof v==="string").slice(0,12),
+    deterministicIds:safeArray(x?.deterministicIds).filter(v=>typeof v==="string"&&/^P\d{3}$/.test(v)).slice(0,16),
+    referenceIds:safeArray(x?.referenceIds).filter(v=>typeof v==="string"&&refs.has(v)).slice(0,12),
     confidence:confidence(x?.confidence)
   };
 }
 
-function normalizeReviewResult(parsed,body){
-  const hard=safeArray(body?.deterministic?.alerts).slice(0,100);
-  const issues=safeArray(parsed?.issues).map((x,i)=>normalizeReviewIssue(x,i,"I")).slice(0,60);
-  const cross=safeArray(parsed?.crossSheetRisks).map((x,i)=>normalizeReviewIssue(x,i,"X")).slice(0,40);
-  const highRisk=[...hard,...issues,...cross].filter(x=>x.severity==="high").length;
-  const mode=body?.deterministic?.textCoverage?.mode||"visual-only";
-  const limitations=safeArray(parsed?.limitations).map(String).slice(0,12);
-  if(body?.drawing?.sourcePages>MAX_PAGES)limitations.unshift("施工图原文件超过 "+MAX_PAGES+" 页，本次只读取前 "+MAX_PAGES+" 页，跨图结论不代表全套图纸。");
-  if(mode!=="hybrid")limitations.unshift("未检测到足够 PDF 文字层，本次图号、编号和文字检查主要依赖视觉，关键内容必须人工复核。");
-  if(!String(body?.reference?.text||"").trim())limitations.unshift("未提供院标/甲方要求/规范依据，本次不做规范符合性结论。");
+function normalizeSheetSummary(x){
   return {
-    summary:String(parsed?.summary||"施工图预审完成"),
-    overall:String(parsed?.overall||"请查看程序硬检查、AI问题与跨图风险。"),
-    analysisMode:mode,
-    counts:{hard:hard.length,issues:issues.length,crossSheet:cross.length,highRisk},
-    hardAlerts:hard,
-    issues,
-    crossSheetRisks:cross,
-    checklist:safeArray(parsed?.checklist).map(String).slice(0,20),
-    limitations,
-    sheetSummary:safeArray(parsed?.sheetSummary).slice(0,MAX_PAGES)
+    sheetId:String(x?.sheetId||""),
+    page:Number.isFinite(Number(x?.page))?Number(x.page):null,
+    role:String(x?.role||"other"),
+    note:String(x?.note||"").slice(0,800)
   };
 }
 
+function normalizeReviewResult(parsed,body){
+  const hard=safeArray(body?.deterministic?.alerts).slice(0,140);
+  const issues=safeArray(parsed?.issues).map((x,i)=>normalizeReviewIssue(x,i,"I",body)).slice(0,70);
+  const cross=safeArray(parsed?.crossSheetRisks).map((x,i)=>normalizeReviewIssue(x,i,"X",body)).slice(0,50);
+  const highRisk=[...hard,...issues,...cross].filter(x=>x.severity==="high").length;
+  const referenceBased=[...issues,...cross].filter(x=>x.referenceIds?.length).length;
+  const mode=body?.deterministic?.textCoverage?.mode||"visual-only";
+  const limitations=safeArray(parsed?.limitations).map(String).slice(0,14);
+  const scanned=Number(body?.drawing?.scannedPages||body?.deterministic?.textCoverage?.scannedPages||body?.drawing?.pages?.length||0);
+  const source=Number(body?.drawing?.sourcePages||scanned);
+  if(source>scanned)limitations.unshift("施工图原文件共 "+source+" 页，本次程序文字预扫前 "+scanned+" 页；未扫描页不在本次结论范围内。");
+  if(scanned>body.drawing.pages.length)limitations.unshift("程序已检查 "+scanned+" 页文字层；M3 视觉只查看按风险排序选出的 "+body.drawing.pages.length+" 个关键页。");
+  if(mode!=="hybrid")limitations.unshift("未检测到足够 PDF 文字层，本次图号、编号和文字检查主要依赖视觉，关键内容必须人工复核。");
+  if(!compactReference(body).length)limitations.unshift("未提供可读取的院标/甲方要求/规范依据，本次不做依据型符合性结论。");
+  if(body?.reference?.truncated)limitations.unshift("参考资料过长，本次只读取了部分文字；引用结论仅覆盖已读取片段。");
+  const reviewStatus=highRisk>0?"needs-attention":((hard.length||issues.some(x=>x.severity==="medium")||cross.length)?"review":"clear");
+  return {
+    summary:String(parsed?.summary||"施工图预审完成"),
+    overall:String(parsed?.overall||"请查看程序硬检查、AI问题与跨图风险。"),
+    reviewStatus,
+    analysisMode:mode,
+    counts:{hard:hard.length,issues:issues.length,crossSheet:cross.length,referenceBased,highRisk,scannedPages:scanned,aiPages:body.drawing.pages.length},
+    hardAlerts:hard,
+    issues,
+    crossSheetRisks:cross,
+    checklist:safeArray(parsed?.checklist).map(String).slice(0,24),
+    limitations:uniqStrings(limitations).slice(0,16),
+    sheetSummary:safeArray(parsed?.sheetSummary).map(normalizeSheetSummary).slice(0,MAX_REVIEW_SCANNED)
+  };
+}
+
+function uniqStrings(items){
+  const seen=new Set(),out=[];
+  for(const x of items){const s=String(x||"").trim();if(s&&!seen.has(s)){seen.add(s);out.push(s)}}
+  return out;
+}
 
 async function handleReview(request,env){
   const len=Number(request.headers.get("content-length")||"0");
@@ -390,7 +440,7 @@ export default {
     if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",modules:["version-diff","drawing-review"],model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"agent-hong-v1.2",modules:["version-diff","drawing-review"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
     if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
