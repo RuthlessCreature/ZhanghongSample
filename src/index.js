@@ -546,6 +546,46 @@ function buildCommentContent(body){
   return content;
 }
 
+function modelContentAsText(envelope){
+  const content=envelope?.choices?.[0]?.message?.content;
+  if(typeof content==="string")return content;
+  if(Array.isArray(content))return content.map(x=>typeof x==="string"?x:(x?.text||"")).join("");
+  if(content&&typeof content==="object")return JSON.stringify(content);
+  return "";
+}
+
+function mergeUsage(a,b){
+  if(!a)return b||null;
+  if(!b)return a||null;
+  const keys=new Set([...Object.keys(a),...Object.keys(b)]),out={};
+  for(const k of keys){
+    const av=a[k],bv=b[k];
+    out[k]=(typeof av==="number"||typeof bv==="number")?Number(av||0)+Number(bv||0):(bv??av);
+  }
+  return out;
+}
+
+async function repairCommentJson(env,model,broken){
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
+  const resp=await fetch(base+"/chat/completions",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},
+    body:JSON.stringify({
+      model,
+      messages:[
+        {role:"system",content:"你是 JSON 修复器。输入是一段本应为严格 JSON 的总工意见检查结果，但可能存在漏逗号、未转义引号或代码围栏。只修复 JSON 语法，不改变任何字段值、状态、置信度或语义。只输出一个严格 JSON 对象，不要解释。"},
+        {role:"user",content:String(broken||"").slice(0,28000)}
+      ],
+      temperature:0,
+      max_completion_tokens:7000
+    })
+  });
+  const raw=await resp.text();
+  if(!resp.ok)throw new Error("MiniMax JSON repair API "+resp.status+": "+raw.slice(0,500));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax JSON repair 返回了非 JSON 响应")}
+  return {parsed:parseModelContent(envelope),usage:envelope.usage||null};
+}
+
 async function callCommentMiniMax(env,body){
   if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
   const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,"");
@@ -565,8 +605,18 @@ async function callCommentMiniMax(env,body){
   const raw=await resp.text();
   if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,700));
   let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回了非 JSON 响应")}
-  let parsed;try{parsed=parseModelContent(envelope)}catch(e){throw new Error("意见闭环结构化结果解析失败："+(e?.message||e))}
-  return {parsed,usage:envelope.usage||null,model};
+  try{
+    return {parsed:parseModelContent(envelope),usage:envelope.usage||null,model,repaired:false};
+  }catch(firstError){
+    const broken=modelContentAsText(envelope);
+    if(!broken)throw new Error("意见闭环结构化结果解析失败："+(firstError?.message||firstError));
+    try{
+      const repaired=await repairCommentJson(env,model,broken);
+      return {parsed:repaired.parsed,usage:mergeUsage(envelope.usage||null,repaired.usage||null),model,repaired:true};
+    }catch(repairError){
+      throw new Error("意见闭环结构化结果解析失败："+(firstError?.message||firstError)+"；自动 JSON 修复也失败："+(repairError?.message||repairError));
+    }
+  }
 }
 
 function commentStatus(v){
@@ -709,8 +759,8 @@ async function handleCommentCheck(request,env){
   let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
   const error=validateCommentPayload(body);if(error)return json({error},400);
   try{
-    const {parsed,usage,model}=await callCommentMiniMax(env,body);
-    return json({ok:true,result:normalizeCommentResult(parsed,body),usage,model});
+    const {parsed,usage,model,repaired}=await callCommentMiniMax(env,body);
+    return json({ok:true,result:normalizeCommentResult(parsed,body),usage,model,structuredRepair:Boolean(repaired)});
   }catch(e){console.error("comment_check_failed",e);return json({error:e?.message||"意见落实检查失败"},502)}
 }
 
