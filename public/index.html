@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0d10">
-  <title>Agent Hong｜建筑设计 AI 工作台</title>
-  <meta name="description" content="Agent Hong：面向建筑设计院的轻量 AI 工程工作台。">
+  <title>Agent Hong｜建筑设计工程协同工作台</title>
+  <meta name="description" content="Agent Hong：面向建筑设计院的工程协同与质量复核工作台，覆盖版本核对、施工图预审、意见闭环、历史检索、依据查询、地勘条件整理与设计交底。">
   <link rel="stylesheet" href="/home.css">
+  <link rel="stylesheet" href="/product-theme.css">
 </head>
 <body>
   <div class="grid"></div>
@@ -16,58 +17,65 @@
   </header>
   <main>
     <section class="hero">
-      <div class="eyebrow">ARCHITECTURAL INTELLIGENCE SYSTEM</div>
-      <h1>把设计院最恶心的<br><em>重复检查先交给 Agent。</em></h1>
-      <p>Agent Hong 不替代设计负责人。它先把版本核对、施工图预审、总工意见闭环、历史图纸检索、规范依据定位、地勘条件提取、设计交底准备这类高重复、低创造、又容易漏的工作扫一遍，再把真正需要人判断的问题留下来。</p>
+      <div class="eyebrow">ARCHITECTURAL ENGINEERING WORKBENCH</div>
+      <h1>让重复核对可追溯，<br><em>让专业判断回到设计人员。</em></h1>
+      <p>Agent Hong 面向建筑设计院日常交付场景，将版本核对、施工图预审、校审意见闭环、历史图纸检索、设计依据查询、地勘条件整理与设计交底统一到同一套可追溯工作流中。系统优先使用确定性证据和原文引用，最终判断仍由设计人员完成。</p>
+    </section>
+
+    <section class="system-overview">
+      <div class="lead"><b>PHASE 1 / PRODUCTION</b><strong>7 个核心工作流已上线</strong><span>统一证据链、统一人工复核边界、统一生产 CI。</span></div>
+      <div><b>EVIDENCE</b><strong>可追溯</strong><span>图号、页码、条款号、原文证据。</span></div>
+      <div><b>PRIVACY</b><strong>本机优先</strong><span>原始 PDF 尽量在浏览器侧处理。</span></div>
+      <div><b>CONTROL</b><strong>人工终审</strong><span>系统辅助核对，不替代专业签审。</span></div>
     </section>
 
     <section class="modules">
       <a class="module live" href="/version-diff.html">
         <div class="num">01</div><div class="tag">LIVE / HYBRID V1</div>
         <h2>施工图版本变更分析</h2>
-        <p>两版图纸精确文字 Diff + 图像区域 Diff + M3 跨图一致性校核。</p>
+        <p>精确文字差异、视觉区域变化与跨图一致性联合核对。</p>
         <div class="chips"><span>尺寸变化</span><span>门窗变化</span><span>漏同步</span></div>
         <div class="go">进入模块 <b>↗</b></div>
       </a>
       <a class="module live second" href="/drawing-review.html">
         <div class="num">02</div><div class="tag">LIVE / PRECHECK V2</div>
-        <h2>AI 施工图预审</h2>
-        <p>最多预扫前30页文字层，程序先扫目录/门窗/房间/引用/未闭环，再让 M3 深审最多10个关键页。</p>
+        <h2>施工图智能预审</h2>
+        <p>先建立整套图纸文字索引，执行目录、门窗、房间、跨图引用和未决事项检查，再对关键页进行工程语义复核。</p>
         <div class="chips"><span>图号</span><span>门窗表</span><span>待确认项</span></div>
         <div class="go">进入模块 <b>↗</b></div>
       </a>
       <a class="module live third" href="/comment-check.html">
         <div class="num">03</div><div class="tag">LIVE / CLOSURE V1</div>
         <h2>总工意见落实检查</h2>
-        <p>意见逐条拆分 + A/B 精确 Diff + M3 证据判定，输出已落实/部分落实/未找到/无法判定闭环矩阵。</p>
+        <p>逐条拆分校审意见，对照修改前后图纸证据，形成可追溯的落实状态矩阵。</p>
         <div class="chips"><span>逐条闭环</span><span>证据定位</span><span>漏同步</span></div>
         <div class="go">进入模块 <b>↗</b></div>
       </a>
       <a class="module live fourth" href="/history-search.html">
         <div class="num">04</div><div class="tag">LIVE / SEARCH V1</div>
         <h2>历史图纸检索</h2>
-        <p>本机 IndexedDB 历史库 + 图号/房间/编号精确检索 + MiniMax M3 语义重排，定位到具体页。</p>
+        <p>本机历史图纸索引结合精确条件与语义检索，定位到具体项目、文件、图号和页码。</p>
         <div class="chips"><span>本机索引</span><span>具体页码</span><span>语义重排</span></div>
         <div class="go">进入模块 <b>↗</b></div>
       </a>
       <a class="module live fifth" href="/reference-assistant.html">
         <div class="num">05</div><div class="tag">LIVE / GROUNDING V1</div>
         <h2>规范依据助手</h2>
-        <p>本机院标/甲方要求证据库 + 条款精确定位 + M3 有出处解释；没有证据就不形成结论。</p>
+        <p>基于本机院标、甲方要求和项目审查资料定位条款并形成有出处的依据说明；无证据不形成结论。</p>
         <div class="chips"><span>条款号</span><span>页码</span><span>原文引用</span></div>
         <div class="go">进入模块 <b>↗</b></div>
       </a>
       <a class="module live sixth" href="/geotech-conditions.html">
         <div class="num">06</div><div class="tag">LIVE / CONDITIONS V1</div>
         <h2>地勘报告 → 设计条件</h2>
-        <p>PDF文字层确定性抽取 + 地下水/承载力/桩基/液化等证据分类 + M3 带页码条件整理。</p>
+        <p>从地勘报告文字层提取地下水、承载力、桩基、液化等关键条件，并保留页码和原文证据。</p>
         <div class="chips"><span>地下水</span><span>承载力</span><span>桩基持力层</span></div>
         <div class="go">进入模块 <b>↗</b></div>
       </a>
       <a class="module live seventh" href="/design-briefing.html">
         <div class="num">07</div><div class="tag">LIVE / BRIEFING V1</div>
         <h2>设计交底生成</h2>
-        <p>施工图与项目要求证据抽取 + Dxxxx 可追溯引用 + M3 生成交底正文、议程、接口与未决事项。</p>
+        <p>基于施工图与项目要求编制交底正文、会议议程、专业接口和未决事项，并保留图号与页码依据。</p>
         <div class="chips"><span>图号页码</span><span>专业接口</span><span>未决事项</span></div>
         <div class="go">进入模块 <b>↗</b></div>
       </a>
@@ -78,6 +86,6 @@
       <div class="roadmap-row"><span>Deterministic first</span><span>Evidence grounded</span><span>Human review retained</span></div>
     </section>
   </main>
-  <footer><span>AGENT HONG</span><span>Deterministic first. AI second.</span></footer>
+  <footer><span>AGENT HONG</span><span>Evidence first. Human decision retained.</span></footer>
 </body>
 </html>

@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0d10">
   <title>Agent Hong｜历史图纸检索</title>
-  <meta name="description" content="Agent Hong 历史图纸检索：本机索引 + 精确检索 + MiniMax M3 语义重排。">
+  <meta name="description" content="Agent Hong 历史图纸检索：本机索引、精确条件检索、语义重排与具体页定位。">
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/history-search.css">
+  <link rel="stylesheet" href="/product-theme.css">
 </head>
 <body>
   <div class="blueprint"></div>
@@ -19,9 +20,9 @@
   <main>
     <section class="hero history-hero">
       <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 04</div>
-      <h1>以前画过的东西，<br><em>别再靠问“谁记得在哪”。</em></h1>
-      <p>把历史项目 PDF 建成本机索引。以后搜项目、图号、房间、门窗编号、节点做法或一句自然语言，Agent Hong 直接定位到具体项目 / 文件 / 图号 / 页码。原始 PDF 不上传服务器。</p>
-      <div class="engine-strip"><span>LOCAL INDEX</span><b>→</b><span>EXACT RETRIEVAL</span><b>→</b><span>M3 RERANK</span><b>→</b><span>SHEET / PAGE HIT</span></div>
+      <h1>历史图纸检索，<br><em>定位到项目、图号和具体页。</em></h1>
+      <p>将历史项目 PDF 建立为浏览器本机索引，可按项目、图号、房间、门窗编号、节点做法或自然语言条件检索，并返回具体文件、图号和页码。原始 PDF 默认不上传服务器。</p>
+      <div class="engine-strip"><span>LOCAL INDEX</span><b>→</b><span>EXACT RETRIEVAL</span><b>→</b><span>SEMANTIC RERANK</span><b>→</b><span>SHEET / PAGE HIT</span></div>
     </section>
 
     <section class="library-strip">
@@ -73,7 +74,7 @@
     <section class="search-panel">
       <div class="search-head">
         <div><div class="step-tag">SEARCH</div><h2>搜历史图纸</h2></div>
-        <label class="ai-toggle"><input type="checkbox" id="aiToggle" checked><span>MiniMax M3 语义重排</span></label>
+        <label class="ai-toggle"><input type="checkbox" id="aiToggle" checked><span>语义重排</span></label>
       </div>
 
       <div class="search-box">
@@ -119,7 +120,7 @@
     </article>
   </div>
 
-  <footer><span>AGENT HONG / MODULE 04</span><span>Local index first. AI rerank second.</span></footer>
+  <footer><span>AGENT HONG / MODULE 04</span><span>Local index first. Evidence-ranked retrieval.</span></footer>
   <script type="module" src="/history-search.js"></script>
 </body>
 </html>

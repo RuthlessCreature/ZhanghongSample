@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0d10">
-  <title>Agent Hong｜AI 施工图预审</title>
-  <meta name="description" content="Agent Hong AI施工图预审：30页文字预扫 + 程序硬检查 + 关键页 MiniMax M3 工程预审。">
+  <title>Agent Hong｜施工图智能预审</title>
+  <meta name="description" content="Agent Hong 施工图智能预审：整套文字索引、确定性检查、关键页工程语义复核与人工确认。">
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/review.css">
+  <link rel="stylesheet" href="/product-theme.css">
 </head>
 <body>
   <div class="blueprint"></div>
@@ -18,9 +19,9 @@
   <main>
     <section class="hero review-hero">
       <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 02</div>
-      <h1>施工图先让机器<br><em>狠狠干一遍预审。</em></h1>
-      <p>先扫描整套图纸的文字层建立目录、图号、门窗、房间与跨图引用索引，再把最值得看的关键页交给 M3。程序负责硬证据，AI 负责工程语义，人负责最终决定。</p>
-      <div class="engine-strip"><span>30-PAGE TEXT SCAN</span><b>→</b><span>DETERMINISTIC PRECHECK</span><b>→</b><span>10 KEY PAGES TO M3</span><b>→</b><span>HUMAN VERIFY</span></div>
+      <h1>施工图预审，<br><em>先锁定硬问题，再聚焦专业复核。</em></h1>
+      <p>先建立整套图纸的文字索引，对目录、图号、门窗、房间、跨图引用和未决事项执行确定性检查，再对高风险页面进行工程语义复核。所有结论保留证据来源，并由设计人员完成最终确认。</p>
+      <div class="engine-strip"><span>FULL-SET TEXT INDEX</span><b>→</b><span>DETERMINISTIC PRECHECK</span><b>→</b><span>KEY-PAGE REVIEW</span><b>→</b><span>HUMAN VERIFY</span></div>
     </section>
 
     <section class="workspace" id="workspace">
@@ -46,14 +47,14 @@
           <div class="file-info" id="referenceInfo">未提供时不做依据型合规结论</div>
         </div>
       </div>
-      <div class="limits">原始 PDF 不上传 · 最多预扫前 30 页文字层 · M3 最多查看 10 个关键页 · 参考资料最多读取前 30 页文字 · 不保存项目文件</div>
+      <div class="limits">原始 PDF 不上传 · 最多预扫前 30 页文字层 · 语义复核最多处理 10 个关键页 · 参考资料最多读取前 30 页文字 · 不保存项目文件</div>
       <button class="primary" id="reviewBtn" disabled><span>开始施工图预审</span><b>↗</b></button>
     </section>
 
     <section class="progress hidden" id="progress">
       <div class="scanner"></div>
       <div class="progress-copy"><div class="eyebrow">AGENT HONG IS REVIEWING</div><h2 id="progressTitle">正在读取图纸…</h2><p id="progressText">先从 PDF 文字层建立图号、目录、门窗、房间和待确认项索引。</p></div>
-      <div class="progress-steps"><span class="active" id="p1">01 文字预扫</span><span id="p2">02 硬检查/选页</span><span id="p3">03 M3预审</span><span id="p4">04 报告</span></div>
+      <div class="progress-steps"><span class="active" id="p1">01 文字预扫</span><span id="p2">02 硬检查/选页</span><span id="p3">03 关键页复核</span><span id="p4">04 报告</span></div>
     </section>
 
     <section class="results hidden" id="results">
@@ -64,14 +65,14 @@
 
       <div class="summary-card">
         <div class="summary-copy"><span>预审摘要</span><h3 id="summaryText">—</h3><p id="overallText">—</p><small id="runtimeMeta">—</small></div>
-        <div class="metrics five"><div><strong id="hardCount">0</strong><span>程序硬问题</span></div><div><strong id="issueCount">0</strong><span>AI预审问题</span></div><div><strong id="crossCount">0</strong><span>跨图风险</span></div><div><strong id="refCount">0</strong><span>依据型问题</span></div><div><strong id="highCount">0</strong><span>高风险项</span></div></div>
+        <div class="metrics five"><div><strong id="hardCount">0</strong><span>程序硬问题</span></div><div><strong id="issueCount">0</strong><span>语义预审问题</span></div><div><strong id="crossCount">0</strong><span>跨图风险</span></div><div><strong id="refCount">0</strong><span>依据型问题</span></div><div><strong id="highCount">0</strong><span>高风险项</span></div></div>
       </div>
 
       <div class="filterbar" id="filters"><span>显示：</span><button class="active" data-level="all">全部</button><button data-level="high">高风险</button><button data-level="medium">需关注</button><button data-level="low">一般</button></div>
 
       <div class="result-block exact-block"><div class="block-title"><div><h3>程序硬检查</h3><p>目录、图号、门窗表、房间编号、跨图引用和未闭环标记；来自 PDF 文字层和规则引擎。</p></div><span>DETERMINISTIC PRECHECK</span></div><div class="cards" id="hardCards"></div></div>
 
-      <div class="result-block"><div class="block-title"><div><h3>AI 预审问题</h3><p>M3 只补充工程语义、视觉问题和硬问题的实际影响，不负责改写硬证据。</p></div><span>AI REVIEW</span></div><div class="cards" id="issueCards"></div></div>
+      <div class="result-block"><div class="block-title"><div><h3>工程语义复核</h3><p>语义复核只补充工程影响和上下文解释，不覆盖程序已经确认的硬证据。</p></div><span>ENGINEERING REVIEW</span></div><div class="cards" id="issueCards"></div></div>
 
       <div class="result-block"><div class="block-title"><div><h3>跨图一致性风险</h3><p>平面、立面、剖面、门窗表、详图与说明之间的疑似不一致。</p></div><span>CROSS-SHEET</span></div><div class="cards" id="crossCards"></div></div>
 

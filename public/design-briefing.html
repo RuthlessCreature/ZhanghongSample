@@ -8,6 +8,7 @@
 <meta name="description" content="Agent Hong 设计交底生成：图纸证据提取 + 带出处交底稿。">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/design-briefing.css">
+  <link rel="stylesheet" href="/product-theme.css">
 </head>
 <body>
 <div class="blueprint"></div>
@@ -19,9 +20,9 @@
 <main>
 <section class="hero briefing-hero">
   <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 07</div>
-  <h1>交底别靠临场发挥。<br><em>把图纸里真正该说的先拎出来。</em></h1>
-  <p>上传施工图和项目要求，Agent Hong 先从数字 PDF 文字层抽出图号、房间、尺寸、门窗、接口和未决事项，再由 MiniMax M3 组织成可直接用于设计交底会的结构化交底稿。关键事项必须带图号、页码和原文证据。</p>
-  <div class="engine-strip"><span>DRAWING EVIDENCE</span><b>→</b><span>PROJECT REQUIREMENTS</span><b>→</b><span>M3 BRIEFING</span><b>→</b><span>CITED HANDOVER</span></div>
+  <h1>设计交底编制，<br><em>关键事项有出处，未决事项不遗漏。</em></h1>
+  <p>导入施工图和项目要求后，系统先从数字 PDF 文字层提取图号、房间、尺寸、门窗、专业接口和未决事项，再组织为结构化交底稿。关键交底事项必须保留图号、页码和原文依据。</p>
+  <div class="engine-strip"><span>DRAWING EVIDENCE</span><b>→</b><span>PROJECT REQUIREMENTS</span><b>→</b><span>STRUCTURED BRIEFING</span><b>→</b><span>CITED HANDOVER</span></div>
 </section>
 
 <section class="workspace">
@@ -50,7 +51,7 @@
     </div>
   </div>
 
-  <div class="limits">原始文件不上传 · 每文件最多扫描前 80 页文字层 · 发送给 M3 的仅是程序筛选后的 Dxxxx 文字证据</div>
+  <div class="limits">原始文件不上传 · 每文件最多扫描前 80 页文字层 · 仅发送程序筛选后的 Dxxxx 文字证据用于交底编排</div>
   <button class="primary" id="generateBtn" disabled><span>生成设计交底</span><b>↗</b></button>
 </section>
 
