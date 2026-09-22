@@ -391,7 +391,8 @@ export default {
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",modules:["version-diff","drawing-review"],model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
     if(url.pathname==="/api/__agent_hong_regression_1c7b"&&request.method==="GET")return handleRegression(env);
-    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);\n    if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
+    if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
+    if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
   }
