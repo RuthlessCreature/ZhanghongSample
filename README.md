@@ -30,13 +30,13 @@ Agent Hong 是面向建筑设计院的轻量 AI 工具。V0.1 只做一个入口
 npx wrangler secret put MINIMAX_API_KEY
 ```
 
-默认使用国际站 OpenAI-compatible endpoint：
+默认使用中国区 OpenAI-compatible endpoint：
 
 ```text
-https://api.minimax.io/v1
+https://api.minimaxi.com/v1
 ```
 
-如使用中国区 API，在 `wrangler.jsonc` 把 `MINIMAX_API_BASE` 改成对应中国区 endpoint。
+如使用国际站 API，请将 `MINIMAX_API_BASE` 改为 `https://api.minimax.io/v1`，并配套使用国际站 Key。
 
 部署：
 
