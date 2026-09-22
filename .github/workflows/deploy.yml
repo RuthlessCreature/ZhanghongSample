@@ -48,7 +48,7 @@ jobs:
               process.stdin.on("end",()=>{
                 try{
                   const x=JSON.parse(s);
-                  const ok=x.ok&&x.configured&&["version-diff","drawing-review","comment-check","history-search"].every(m=>x.modules?.includes(m));
+                  const ok=x.ok&&x.configured&&["version-diff","drawing-review","comment-check","history-search","reference-assistant"].every(m=>x.modules?.includes(m));
                   process.exit(ok?0:1);
                 }catch{process.exit(1)}
               });
@@ -65,7 +65,7 @@ jobs:
             process.stdin.on("end",()=>{
               const x=JSON.parse(s);
               if(!x.ok || !x.configured) throw new Error("health not ready");
-              for(const m of ["version-diff","drawing-review","comment-check","history-search"]){
+              for(const m of ["version-diff","drawing-review","comment-check","history-search","reference-assistant"]){
                 if(!x.modules?.includes(m)) throw new Error("missing module: "+m);
               }
               console.log("Agent Hong health smoke passed");
@@ -75,4 +75,10 @@ jobs:
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/drawing-review.html >/dev/null
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/comment-check.html >/dev/null
           curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/history-search.html >/dev/null
+          curl -fsS --retry 5 --retry-delay 5 --max-time 30 https://zhanghong.fhkq.best/reference-assistant.html >/dev/null
           echo "Agent Hong module pages smoke passed"
+      - name: Production Module 05 grounding regression
+        shell: bash
+        env:
+          REFERENCE_API_URL: https://zhanghong.fhkq.best/api/reference-answer
+        run: node tests/reference-pdf.integration.mjs
