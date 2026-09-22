@@ -276,6 +276,43 @@ async function handleRegression(env){
   }
 }
 
+async function runHybridSelfTest(env){
+  const px="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nAAAAABJRU5ErkJggg==";
+  const mkPages=()=>[
+    {pageNumber:1,image:px,sheetId:"A-101",textItemCount:30},
+    {pageNumber:2,image:px,sheetId:"A-201",textItemCount:20},
+    {pageNumber:3,image:px,sheetId:"A-601",textItemCount:40}
+  ];
+  const textChanges=[
+    {id:"T001",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"23000",after:"23800",numeric:{before:23000,after:23800,delta:800},position:{x:.5,y:.1},matchConfidence:.99},
+    {id:"T002",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"12000",after:"12800",numeric:{before:12000,after:12800,delta:800},position:{x:.4,y:.13},matchConfidence:.99},
+    {id:"T003",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"MEETING ROOM 102",after:"CONFERENCE ROOM 102",numeric:null,position:{x:.65,y:.42},matchConfidence:.99},
+    {id:"T004",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"STAIR CLR 1200",after:"STAIR CLR 1350",numeric:{before:1200,after:1350,delta:150},position:{x:.58,y:.65},matchConfidence:.99},
+    {id:"T005",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"1. Grid/partition adjusted +800.",after:"1. Grid/partition adjusted +800.",numeric:null,position:{x:.8,y:.15},matchConfidence:1},
+    {id:"T006",sheetId:"A-101",pageA:1,pageB:1,type:"add",before:"",after:"W03",numeric:null,position:{x:.75,y:.82},matchConfidence:1},
+    {id:"T007",sheetId:"A-201",pageA:2,pageB:2,type:"add",before:"",after:"NOTE: PLAN A-101 ADDS WINDOW W03. CHECK IF SOUTH ELEVATION REQUIRES UPDATE.",numeric:null,position:{x:.58,y:.2},matchConfidence:1},
+    {id:"T008",sheetId:"A-601",pageA:3,pageB:3,type:"add",before:"",after:"REV B NOTE: VERIFY NEW WINDOW W03 IS ADDED TO THIS SCHEDULE.",numeric:null,position:{x:.4,y:.78},matchConfidence:1}
+  ];
+  const body={
+    projectName:"Agent Hong Hybrid Self Test",
+    notes:"验证确定性证据优先级：严禁把 +800 误读成 +500；检查 W03 跨图同步。",
+    versionA:{name:"A.pdf",type:"pdf",sourcePages:3,pages:mkPages()},
+    versionB:{name:"B.pdf",type:"pdf",sourcePages:3,pages:mkPages()},
+    deterministic:{
+      pagePairs:[
+        {pageA:0,pageB:0,sheetId:"A-101",method:"sheet-id"},
+        {pageA:1,pageB:1,sheetId:"A-201",method:"sheet-id"},
+        {pageA:2,pageB:2,sheetId:"A-601",method:"sheet-id"}
+      ],
+      textCoverage:{itemsA:90,itemsB:98,mode:"hybrid"},
+      textChanges,
+      visualRegions:[]
+    }
+  };
+  const {parsed,usage,model}=await callMiniMax(env,body);
+  return {ok:true,result:normalizeModelResult(parsed,body),usage,model};
+}
+
 async function handleCompare(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
@@ -294,6 +331,9 @@ export default {
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/selftest-hybrid"&&request.method==="GET"){
+      try{return json(await runHybridSelfTest(env));}catch(e){return json({ok:false,error:e?.message||"selftest failed"},502)}
+    }
     if(url.pathname==="/api/__agent_hong_regression_1c7b"&&request.method==="GET")return handleRegression(env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
