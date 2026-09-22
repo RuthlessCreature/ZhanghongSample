@@ -492,89 +492,6 @@ async function handleModule02Regression(env){
 }
 
 
-function module02V2RegressionBody(kind){
-  const bad=kind==="bad";
-  const image="data:image/jpeg;base64,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";
-  const refs=[
-    {id:"R001",text:"All door and window marks shown on floor plans shall be included in the Door & Window Schedule before IFC issue."},
-    {id:"R002",text:"Room 102 shall be named MEETING ROOM throughout the architectural drawing set."},
-    {id:"R003",text:"No CHECK, VERIFY, TBD, TBC, PENDING or HOLD note may remain in the final IFC drawing issue."},
-    {id:"R004",text:"The Drawing Index shall list every issued architectural sheet and shall not list non-issued sheets."},
-    {id:"R005",text:"Cross-sheet references shall resolve to an issued drawing in the same architectural set unless explicitly identified as another discipline."},
-    {id:"R006",text:"Window W03 shall appear consistently on the Level 1 Floor Plan, South Elevation and Door & Window Schedule."}
-  ];
-  const badTexts=[
-    ["A-000","DRAWING INDEX A-000 A-101 A-201 A-301 A-501 A-601 A-502"],
-    ["A-101","LEVEL 1 FLOOR PLAN A-101 W01 W02 W03 W04 D01 D02 D03 D04 D05 ROOM 102: MEETING ROOM A-501 A-502 A-201 CHECK D05 WITH DOOR SCHEDULE VERIFY W03 IN ELEVATION"],
-    ["A-201","SOUTH ELEVATION A-201 W01 W02 W04 D01 TBD CONFIRM W03 ON SOUTH ELEVATION"],
-    ["A-301","BUILDING SECTION A-A A-301 VERIFY DETAIL A-503 HOLD FIRESTOP"],
-    ["A-501","TOILET DETAIL A-501 ROOM 102: STORAGE PENDING FLOOR FINISH"],
-    ["A-601","DOOR WINDOW SCHEDULE A-601 D01 DOOR D02 DOOR D03 DOOR D04 DOOR D09 DOOR W01 WINDOW W02 WINDOW W04 WINDOW VERIFY W03 D05"],
-    ["A-701","GENERAL NOTES A-701 CHECK CLIENT TO CONFIRM WALL FINISH"]
-  ];
-  const cleanTexts=[
-    ["A-000","DRAWING INDEX A-000 A-101 A-201 A-301 A-501 A-601 A-701"],
-    ["A-101","LEVEL 1 FLOOR PLAN A-101 W01 W02 W03 W04 D01 D02 D03 D04 D05 ROOM 102: MEETING ROOM A-501 A-201 ALL DOORS WINDOWS COORDINATED"],
-    ["A-201","SOUTH ELEVATION A-201 W01 W02 W03 W04 D01 W03 COORDINATED WITH A-101 A-601"],
-    ["A-301","BUILDING SECTION A-A A-301 A-501 FIRESTOP DETAIL COORDINATED"],
-    ["A-501","TOILET DETAIL A-501 ROOM 103: TOILET FLOOR FINISH FL-01"],
-    ["A-601","DOOR WINDOW SCHEDULE A-601 D01 DOOR D02 DOOR D03 DOOR D04 DOOR D05 DOOR W01 WINDOW W02 WINDOW W03 WINDOW W04 WINDOW"],
-    ["A-701","GENERAL NOTES A-701 ROOM 102 SHALL BE MEETING ROOM WALL FINISH CONFIRMED WF-01"]
-  ];
-  const arr=bad?badTexts:cleanTexts;
-  const sheets=arr.map((x,i)=>({page:i+1,sheetId:x[0],role:["index","plan","elevation","section","detail","schedule","notes"][i],windows:[],doors:[],refs:[],rooms:[],unresolved:[],revisionPlaceholders:[],textItemCount:20}));
-  const alerts=bad?[
-    {id:"P001",severity:"high",category:"图纸目录",location:"A-000",issue:"图纸目录列出当前套图中不存在的图号",evidence:"A-502 未发行",source:"pdf_text"},
-    {id:"P002",severity:"medium",category:"图纸目录",location:"A-000",issue:"当前套图存在未列入图纸目录的已发行图号",evidence:"A-701 未列入目录",source:"pdf_text"},
-    {id:"P003",severity:"high",category:"门窗一致性",location:"A-101",issue:"平面出现窗号 W03，但门窗表未检出",evidence:"A-101 有 W03；A-601 无 W03",source:"pdf_text"},
-    {id:"P004",severity:"high",category:"门窗一致性",location:"A-101",issue:"平面出现门号 D05，但门窗表未检出",evidence:"A-101 有 D05；A-601 无 D05",source:"pdf_text"},
-    {id:"P005",severity:"medium",category:"门窗一致性",location:"A-601",issue:"门窗表存在门号 D09，但平面未检出",evidence:"A-601 有孤立 D09",source:"pdf_text"},
-    {id:"P006",severity:"high",category:"房间编号/名称",location:"A-101, A-501",issue:"同一房间编号 ROOM 102 出现多个名称",evidence:"MEETING ROOM ↔ STORAGE",source:"pdf_text"},
-    {id:"P007",severity:"medium",category:"未闭环标记",location:"A-101",issue:"发现待确认文字",evidence:"CHECK D05；VERIFY W03",source:"pdf_text"},
-    {id:"P008",severity:"medium",category:"未闭环标记",location:"A-201",issue:"发现待确认文字",evidence:"TBD CONFIRM W03",source:"pdf_text"},
-    {id:"P009",severity:"medium",category:"未闭环标记",location:"A-301",issue:"发现待确认文字",evidence:"VERIFY A-503；HOLD FIRESTOP",source:"pdf_text"},
-    {id:"P010",severity:"medium",category:"未闭环标记",location:"A-501",issue:"发现待确认文字",evidence:"PENDING FLOOR FINISH",source:"pdf_text"},
-    {id:"P011",severity:"medium",category:"未闭环标记",location:"A-601",issue:"发现待确认文字",evidence:"VERIFY W03 D05",source:"pdf_text"},
-    {id:"P012",severity:"medium",category:"未闭环标记",location:"A-701",issue:"发现待确认文字",evidence:"CHECK CLIENT TO CONFIRM WALL FINISH",source:"pdf_text"},
-    {id:"P013",severity:"medium",category:"图纸引用",location:"A-301",issue:"当前套图中未找到的图号引用",evidence:"A-503",source:"pdf_text"}
-  ]:[];
-  return {
-    projectName:"Agent Hong Module 02 V2 "+(bad?"Fault Regression":"Clean Control"),
-    focus:bad
-      ?"这是生产回归。图像只验证多模态管线，不承载语义。请以程序文字证据为准，并在相关问题明确引用 R003（未闭环）、R004（目录）和 R006（W03跨图）。"
-      :"这是干净对照回归。图像只验证多模态管线，不承载语义。文字证据已闭环；不要制造不存在的高风险或跨图问题。",
-    drawing:{name:(bad?"Bad":"Clean")+".pdf",type:"pdf",sourcePages:7,scannedPages:7,selectedPageNumbers:[1,2,3,4,5,6,7],selection:sheets.map(s=>({pageNumber:s.page,sheetId:s.sheetId,role:s.role,score:100})),pages:arr.map((x,i)=>({pageNumber:i+1,image,sheetId:x[0],textDigest:x[1],textDigestTruncated:false,textItemCount:20}))},
-    reference:{name:"ProjectRequirements.txt",text:refs.map(x=>x.text).join("\n"),chunks:refs,mode:"text",truncated:false,pagesRead:1},
-    deterministic:{textCoverage:{mode:"hybrid",totalTextItems:140,pagesWithText:7,pagesWithSheetId:7,scannedPages:7,sourcePages:7},sheets,alerts,indices:{actualSheets:arr.map(x=>x[0])},fullyLoaded:true}
-  };
-}
-
-async function handleModule02V2Regression(env){
-  const out={};
-  for(const kind of ["bad","clean"]){
-    const body=module02V2RegressionBody(kind);
-    const {parsed,usage,model}=await callReviewMiniMax(env,body);
-    out[kind]={result:normalizeReviewResult(parsed,body),usage,model};
-  }
-  const bd=JSON.stringify(out.bad.result);
-  const allRefs=[...(out.bad.result.issues||[]),...(out.bad.result.crossSheetRisks||[])].flatMap(x=>x.referenceIds||[]);
-  const checks={
-    badNeedsAttention:out.bad.result.reviewStatus==="needs-attention",
-    badW03:/W03/.test(bd)&&/A-201/.test(bd)&&/A-601/.test(bd),
-    badD05:/D05/.test(bd)&&/A-601/.test(bd),
-    badRoom:/ROOM 102/.test(bd)&&/MEETING ROOM|STORAGE/.test(bd),
-    badMissingRef:/A-503/.test(bd),
-    citesR003:allRefs.includes("R003"),
-    citesR004:allRefs.includes("R004"),
-    citesR006:allRefs.includes("R006"),
-    cleanNoHigh:out.clean.result.counts.highRisk===0,
-    cleanNoHard:out.clean.result.counts.hard===0,
-    cleanNoCross:(out.clean.result.crossSheetRisks||[]).length===0,
-    cleanStatusClear:out.clean.result.reviewStatus==="clear"
-  };
-  return json({ok:Object.values(checks).every(Boolean),checks,bad:out.bad,clean:out.clean});
-}
-
 async function handleReview(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
@@ -605,7 +522,6 @@ export default {
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"agent-hong-v1.2",modules:["version-diff","drawing-review"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
     if(url.pathname==="/api/__module02_v2_regression"&&request.method==="GET")return handleModule02Regression(env);
-    if(url.pathname==="/api/__module02_v2_regression_43da"&&request.method==="GET")return handleModule02V2Regression(env);
     if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
