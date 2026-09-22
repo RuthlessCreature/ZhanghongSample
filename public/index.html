@@ -5,110 +5,67 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0a0d10" />
   <title>Agent Hong｜施工图版本变更分析</title>
-  <meta name="description" content="Agent Hong：建筑施工图版本变更分析与疑似漏同步检查。" />
+  <meta name="description" content="Agent Hong：建筑施工图版本变更、确定性文字差异与跨图漏同步检查。" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div class="blueprint"></div>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="Agent Hong 首页">
-      <span class="brand-mark">AH</span>
-      <span class="brand-name">Agent Hong</span>
-    </a>
+    <a class="brand" href="/" aria-label="Agent Hong 首页"><span class="brand-mark">AH</span><span class="brand-name">Agent Hong</span></a>
     <div class="status" id="serviceStatus"><span></span> 系统检查中</div>
   </header>
 
   <main>
     <section class="hero">
       <div class="eyebrow">ARCHITECTURAL INTELLIGENCE / 01</div>
-      <h1>别再人工一张张<br><em>找图纸差异。</em></h1>
-      <p>上传施工图 A / B 两个版本，Agent Hong 自动梳理变化，并标出疑似漏同步、前后不一致和需要人工复核的位置。</p>
-      <div class="hero-note">当前版本只做一件事：<strong>施工图版本变更分析</strong></div>
+      <h1>版本变更，<br><em>别再靠肉眼硬找。</em></h1>
+      <p>Agent Hong 先用程序精确比对 PDF 文字和数字，再定位图像变化区域，最后让 MiniMax M3 做工程语义与跨图一致性校核。</p>
+      <div class="hero-note">当前只做一件事：<strong>施工图版本变更分析</strong></div>
+      <div class="engine-strip"><span>PDF TEXT DIFF</span><b>→</b><span>VISUAL REGION DIFF</span><b>→</b><span>M3 ENGINEERING REVIEW</span></div>
     </section>
 
     <section class="workspace" id="workspace">
-      <div class="workspace-head">
-        <div>
-          <div class="step-tag">01 / VERSION DIFF</div>
-          <h2>施工图版本变更分析</h2>
-        </div>
-        <span class="beta">MVP</span>
-      </div>
-
+      <div class="workspace-head"><div><div class="step-tag">01 / VERSION DIFF</div><h2>上传两个版本</h2></div><span class="beta">HYBRID V1</span></div>
       <div class="meta-grid">
         <label>项目名称（可选）<input id="projectName" maxlength="80" placeholder="例如：宜宾 XX 产业园一期" /></label>
-        <label>重点关注（可选）<input id="notes" maxlength="300" placeholder="例如：重点看卫生间、楼梯和门窗编号" /></label>
+        <label>重点关注（可选）<input id="notes" maxlength="300" placeholder="例如：重点看卫生间、楼梯、门窗表和立面同步" /></label>
       </div>
-
       <div class="upload-grid">
-        <div class="dropzone" data-side="A" tabindex="0">
-          <input id="fileA" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden />
-          <div class="version-pill">VERSION A</div>
-          <div class="drop-icon">A</div>
-          <h3>旧版本</h3>
-          <p>拖入 PDF / PNG / JPG，或点击选择</p>
-          <div class="file-info" id="infoA">尚未选择文件</div>
-        </div>
+        <div class="dropzone" data-side="A" tabindex="0"><input id="fileA" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden /><div class="version-pill">VERSION A</div><div class="drop-icon">A</div><h3>旧版本</h3><p>拖入 PDF / PNG / JPG，或点击选择</p><div class="file-info" id="infoA">尚未选择文件</div></div>
         <div class="compare-arrow" aria-hidden="true">→</div>
-        <div class="dropzone" data-side="B" tabindex="0">
-          <input id="fileB" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden />
-          <div class="version-pill">VERSION B</div>
-          <div class="drop-icon">B</div>
-          <h3>新版本</h3>
-          <p>拖入 PDF / PNG / JPG，或点击选择</p>
-          <div class="file-info" id="infoB">尚未选择文件</div>
-        </div>
+        <div class="dropzone" data-side="B" tabindex="0"><input id="fileB" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden /><div class="version-pill">VERSION B</div><div class="drop-icon">B</div><h3>新版本</h3><p>拖入 PDF / PNG / JPG，或点击选择</p><div class="file-info" id="infoB">尚未选择文件</div></div>
       </div>
-
-      <div class="limits">单文件建议 ≤ 35MB · PDF 每版最多读取前 8 页 · 文件只用于本次分析</div>
-      <button class="primary" id="analyzeBtn" disabled><span>开始分析版本变化</span><b>↗</b></button>
+      <div class="limits">PDF 原文件不上传 · 优先读取内置文字层 · 每版最多前 8 页 · 单文件建议 ≤ 35MB</div>
+      <button class="primary" id="analyzeBtn" disabled><span>开始三层版本校核</span><b>↗</b></button>
     </section>
 
     <section class="progress hidden" id="progress">
-      <div class="scanner"></div>
-      <div class="progress-copy">
-        <div class="eyebrow">AGENT HONG IS WORKING</div>
-        <h2 id="progressTitle">正在预处理图纸…</h2>
-        <p id="progressText">把 PDF 页面转换成适合多模态模型读取的图像。</p>
-      </div>
-      <div class="progress-steps">
-        <span class="active" id="p1">01 读取</span><span id="p2">02 比较</span><span id="p3">03 归纳</span>
-      </div>
+      <div class="scanner"></div><div class="progress-copy"><div class="eyebrow">AGENT HONG IS WORKING</div><h2 id="progressTitle">正在读取图纸…</h2><p id="progressText">先从 PDF 文字层拿到可靠的尺寸、编号和文字。</p></div>
+      <div class="progress-steps"><span class="active" id="p1">01 读取</span><span id="p2">02 文字Diff</span><span id="p3">03 视觉Diff</span><span id="p4">04 AI校核</span></div>
     </section>
 
     <section class="results hidden" id="results">
       <div class="result-head">
-        <div><div class="eyebrow">ANALYSIS COMPLETE</div><h2>版本变化报告</h2></div>
-        <button class="secondary" id="resetBtn">重新分析</button>
+        <div><div class="eyebrow">ANALYSIS COMPLETE</div><h2>版本变化报告</h2><div id="analysisMode" class="mode">—</div></div>
+        <div class="result-actions"><button class="secondary" id="jsonBtn">下载 JSON</button><button class="secondary" id="printBtn">打印 / PDF</button><button class="secondary" id="resetBtn">重新分析</button></div>
       </div>
       <div class="summary-card">
-        <div class="summary-copy"><span>结论摘要</span><h3 id="summaryText">—</h3><p id="overallText">—</p></div>
-        <div class="metrics">
-          <div><strong id="changedCount">0</strong><span>识别变化</span></div>
-          <div><strong id="riskCount">0</strong><span>高风险</span></div>
-          <div><strong id="syncCount">0</strong><span>疑似漏同步</span></div>
-        </div>
+        <div class="summary-copy"><span>结论摘要</span><h3 id="summaryText">—</h3><p id="overallText">—</p><small id="runtimeMeta">—</small></div>
+        <div class="metrics four"><div><strong id="exactCount">0</strong><span>确定文字变化</span></div><div><strong id="semanticCount">0</strong><span>工程语义变化</span></div><div><strong id="riskCount">0</strong><span>跨图风险</span></div><div><strong id="highCount">0</strong><span>高风险项</span></div></div>
       </div>
 
-      <div class="result-block">
-        <div class="block-title"><h3>变化清单</h3><span>CHANGE LOG</span></div>
-        <div class="cards" id="changeCards"></div>
+      <div class="result-block exact-block"><div class="block-title"><div><h3>确定性文字 / 数字变化</h3><p>来自 PDF 文字层，不依赖模型 OCR。</p></div><span>DETERMINISTIC EVIDENCE</span></div><div class="exact-cards" id="exactCards"></div></div>
+      <div class="result-block"><div class="block-title"><div><h3>工程语义变化</h3><p>M3 基于确定证据、视觉区域和完整页面做工程解释。</p></div><span>SEMANTIC CHANGES</span></div><div class="cards" id="changeCards"></div></div>
+      <div class="result-block"><div class="block-title"><div><h3>跨图漏同步风险</h3><p>重点检查平面、立面、剖面、门窗表与说明之间的联动。</p></div><span>SYNC RISKS</span></div><div class="cards" id="riskCards"></div></div>
+      <div class="result-block"><div class="block-title"><div><h3>视觉变化区域</h3><p>程序先定位主要像素变化，左 A 右 B。</p></div><span>VISUAL EVIDENCE</span></div><div class="visual-grid" id="visualCards"></div></div>
+      <div class="result-grid">
+        <div class="result-block"><div class="block-title"><h3>人工复核建议</h3><span>HUMAN CHECK</span></div><ol class="verify-list" id="verifyList"></ol></div>
+        <div class="result-block"><div class="block-title"><h3>本次分析局限</h3><span>LIMITATIONS</span></div><ul class="verify-list" id="limitations"></ul></div>
       </div>
-
-      <div class="result-block">
-        <div class="block-title"><h3>疑似漏同步</h3><span>SYNC RISKS</span></div>
-        <div class="cards" id="riskCards"></div>
-      </div>
-
-      <div class="result-block">
-        <div class="block-title"><h3>人工复核建议</h3><span>HUMAN CHECK</span></div>
-        <ol class="verify-list" id="verifyList"></ol>
-      </div>
-      <div class="disclaimer">Agent Hong 用于辅助版本核对，不替代设计人员、注册执业人员或法定施工图审查。</div>
+      <div class="disclaimer">Agent Hong 用于辅助版本核对。确定性文字层可减少数字误读，但图形语义与跨图关系仍需专业人员复核；本工具不替代注册执业人员或法定施工图审查。</div>
     </section>
   </main>
-
-  <footer><span>AGENT HONG</span><span>Designed for architectural drawing review</span></footer>
+  <footer><span>AGENT HONG</span><span>Deterministic first. AI second.</span></footer>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
