@@ -145,7 +145,6 @@ function scoreChunk(parsed,chunk,filters={}){
   for(const n of parsed.numbers){
     if(String(chunk.text).includes(String(n)))score+=2;
   }
-  if(chunk.clause)score+=1;
   return score;
 }
 
