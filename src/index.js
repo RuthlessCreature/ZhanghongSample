@@ -332,7 +332,7 @@ export default {
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
     if(url.pathname==="/api/selftest-hybrid"&&request.method==="GET"){
-      try{return json(await runHybridSelfTest(env));}catch(e){return json({ok:false,error:e?.message||"selftest failed"},502)}
+      try{return json(await runHybridSelfTest(env));}catch(e){return json({ok:false,error:e?.message||"selftest failed",stack:String(e?.stack||"").slice(0,1200)})}
     }
     if(url.pathname==="/api/__agent_hong_regression_1c7b"&&request.method==="GET")return handleRegression(env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
