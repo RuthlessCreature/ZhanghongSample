@@ -217,6 +217,65 @@ function normalizeModelResult(parsed, body) {
   };
 }
 
+function regressionFixture() {
+  const pixel="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z1cAAAAAASUVORK5CYII=";
+  const page=(sheetId,text)=>({pageNumber:1,image:pixel,sheetId,textItemCount:20,textDigest:text,textDigestTruncated:false});
+  return {
+    projectName:"Agent Hong production regression",
+    notes:"仅按确定性文字证据校核。特别检查精确数值和 W03 跨图同步，不得用视觉覆盖程序证据。",
+    versionA:{
+      name:"Regression-A.pdf",sourcePages:3,
+      pages:[
+        page("A-101","SHEET A-101 | 23000 | 12000 | MEETING ROOM | STAIR CLR 1200 | W01 | W02 | W04"),
+        page("A-201","SHEET A-201 | SOUTH ELEVATION | W04 | D01 | W02 | W01"),
+        page("A-601","SHEET A-601 | DOOR WINDOW SCHEDULE | D01 | D02 | D03 | D04 | W01 | W02 | W04")
+      ]
+    },
+    versionB:{
+      name:"Regression-B.pdf",sourcePages:3,
+      pages:[
+        page("A-101","SHEET A-101 | 23800 | 12800 | CONFERENCE ROOM | STAIR CLR 1350 | W01 | W02 | W03 | W04"),
+        page("A-201","SHEET A-201 | SOUTH ELEVATION | W04 | D01 | W02 | W01"),
+        page("A-601","SHEET A-601 | DOOR WINDOW SCHEDULE | D01 | D02 | D03 | D04 | W01 | W02 | W04")
+      ]
+    },
+    deterministic:{
+      pagePairs:[
+        {pageA:0,pageB:0,sheetId:"A-101",method:"sheet-id"},
+        {pageA:1,pageB:1,sheetId:"A-201",method:"sheet-id"},
+        {pageA:2,pageB:2,sheetId:"A-601",method:"sheet-id"}
+      ],
+      textCoverage:{itemsA:60,itemsB:64,mode:"hybrid"},
+      textChanges:[
+        {id:"T001",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"23000",after:"23800",numeric:{before:23000,after:23800,delta:800},position:{x:.4,y:.2},matchConfidence:1},
+        {id:"T002",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"12000",after:"12800",numeric:{before:12000,after:12800,delta:800},position:{x:.3,y:.25},matchConfidence:.98},
+        {id:"T003",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"MEETING ROOM",after:"CONFERENCE ROOM",numeric:null,position:{x:.55,y:.45},matchConfidence:.91},
+        {id:"T004",sheetId:"A-101",pageA:1,pageB:1,type:"replace",before:"STAIR CLR 1200",after:"STAIR CLR 1350",numeric:{before:1200,after:1350,delta:150},position:{x:.45,y:.6},matchConfidence:.92},
+        {id:"T005",sheetId:"A-101",pageA:1,pageB:1,type:"add",before:"",after:"W03",numeric:null,position:{x:.65,y:.77},matchConfidence:1}
+      ],
+      visualRegions:[]
+    }
+  };
+}
+
+async function handleRegression(env){
+  const body=regressionFixture();
+  try{
+    const {parsed,usage,model}=await callMiniMax(env,body);
+    const result=normalizeModelResult(parsed,body);
+    const dump=JSON.stringify(result);
+    const checks={
+      exact800:dump.includes("23800")&&dump.includes("12800")&&!dump.includes("+500")&&!dump.includes("12500"),
+      stair1350:dump.includes("1350")&&!dump.includes("1300"),
+      w03ElevationRisk:result.syncRisks.some(x=>/W03/i.test(x.issue+x.evidence)&&/A-201|立面/i.test(x.location+x.issue+x.evidence)),
+      w03ScheduleRisk:result.syncRisks.some(x=>/W03/i.test(x.issue+x.evidence)&&/A-601|门窗表|SCHEDULE/i.test(x.location+x.issue+x.evidence))
+    };
+    return json({ok:Object.values(checks).every(Boolean),checks,result,usage,model});
+  }catch(e){
+    return json({ok:false,error:e?.message||"regression failed"},502);
+  }
+}
+
 async function handleCompare(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>MAX_BODY_BYTES)return json({error:"请求过大，最大 38MB"},413);
@@ -235,6 +294,7 @@ export default {
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
     if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"drawing-version-diff",engine:"hybrid-diff-v1",model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/__agent_hong_regression_1c7b"&&request.method==="GET")return handleRegression(env);
     if(url.pathname==="/api/compare"&&request.method==="POST")return handleCompare(request,env);
     if(url.pathname.startsWith("/api/"))return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
