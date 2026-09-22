@@ -11,6 +11,10 @@ assert.equal(comments.length,4);
 assert.equal(comments[0].id,'C001');
 assert.ok(comments[0].targetSheets.includes('A-101'));
 assert.ok(comments[2].marks.includes('W03'));
+assert.deepEqual(comments[0].targetSheets,['A-101']);
+const shaftComment=parseCommentLines(['1. Coordinate MEP shaft S-01 between A-101 and A-301 and add an explicit coordinated note.'])[0];
+assert.deepEqual(shaftComment.targetSheets,['A-101','A-301']);
+assert.ok(!shaftComment.targetSheets.includes('S-01'));
 
 const changes=[
  {id:'T001',sheetId:'A-101',pageA:1,pageB:1,type:'replace',before:'ROOM 102: MEETING ROOM',after:'ROOM 102: CONFERENCE ROOM'},
