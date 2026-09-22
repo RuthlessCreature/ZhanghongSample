@@ -904,6 +904,65 @@ function normalizeHistoryResult(parsed,candidates){
   return {intent:String(parsed?.intent||""),ranked:ranked.slice(0,20)};
 }
 
+
+const MAX_REFERENCE_CANDIDATES=12;
+const REFERENCE_SYSTEM_PROMPT=[
+  "你是 Agent Hong 的规范/院标依据解释器。你绝对不能依靠记忆回答规范要求，只能使用用户当前提供的候选证据。",
+  "",
+  "强制规则：",
+  "1. candidates 是唯一允许使用的事实来源。禁止补充候选里没有的条文号、数值、适用范围、法规名称或结论。",
+  "2. citations 只能填写 candidates 中存在的 id。每个实质性结论必须至少有一个有效 citation。",
+  "3. 如果候选证据不足以回答问题，status 必须为 not_found，answer 明确说明‘在当前资料库中未找到足够依据’，citations 为空。",
+  "4. mode=clause 时，重点解释条文内容、适用对象和原文含义，不扩展到资料之外。",
+  "5. mode=issue 时，可以把用户描述的事实与候选条文中的条件做比较；若数值关系明确，可以说‘基于当前上传依据，该条件不满足/满足’，但不得升级为法定合规或违法结论。",
+  "6. 不得把院标、甲方要求、项目审查要点误称为国家规范。必须保留 documentType。",
+  "7. 对候选之间冲突或版本不明，status=needs_review，并明确冲突来源。",
+  "8. 只输出严格 JSON，不要 Markdown。",
+  "",
+  "输出：",
+  "{\"status\":\"supported|needs_review|not_found\",\"title\":\"简短标题\",\"answer\":\"有依据的解释\",\"citations\":[\"候选证据ID\"],\"caveat\":\"边界或需复核项\"}"
+].join("\n");
+
+function validateReferencePayload(body){
+  if(!body||typeof body!=="object")return "请求体无效";
+  const q=String(body?.query||"").trim();if(!q)return "缺少问题";if(q.length>1200)return "问题过长";
+  if(!["clause","issue"].includes(String(body?.mode||"")))return "mode 无效";
+  const cs=safeArray(body?.candidates);if(!cs.length)return "缺少候选证据";if(cs.length>MAX_REFERENCE_CANDIDATES)return "候选证据最多 "+MAX_REFERENCE_CANDIDATES+" 条";
+  const ids=new Set();
+  for(const x of cs){const id=String(x?.id||"");if(!id)return "证据缺少 ID";if(ids.has(id))return "证据 ID 重复";ids.add(id);if(String(x?.text||"").length>5000)return "单条证据过长";}
+  return null;
+}
+async function callReferenceMiniMax(env,body){
+  if(!env.MINIMAX_API_KEY)throw new Error("服务端尚未配置 MINIMAX_API_KEY");
+  const base=(env.MINIMAX_API_BASE||"https://api.minimaxi.com/v1").replace(/\/$/,""),model=env.MINIMAX_MODEL||"MiniMax-M3";
+  const candidates=safeArray(body.candidates).map(x=>({
+    id:String(x.id),documentName:String(x.documentName||""),documentType:String(x.documentType||""),version:String(x.version||""),
+    pageNumber:Number(x.pageNumber||0),clause:x.clause?String(x.clause):null,text:String(x.text||"").slice(0,5000),deterministicScore:Number(x.score||0)
+  }));
+  const resp=await fetch(base+"/chat/completions",{method:"POST",headers:{Authorization:"Bearer "+env.MINIMAX_API_KEY,"content-type":"application/json"},body:JSON.stringify({
+    model,messages:[{role:"system",content:REFERENCE_SYSTEM_PROMPT},{role:"user",content:"mode="+body.mode+"\n用户问题："+body.query+"\n候选证据 JSON：\n"+JSON.stringify(candidates)}],
+    temperature:0,max_completion_tokens:5000,reasoning_split:true,thinking:{type:"adaptive"}
+  })});
+  const raw=await resp.text();if(!resp.ok)throw new Error("MiniMax API "+resp.status+": "+raw.slice(0,600));
+  let envelope;try{envelope=JSON.parse(raw)}catch{throw new Error("MiniMax 返回非 JSON 响应")}
+  let parsed;try{parsed=parseModelContent(envelope)}catch(e){throw new Error("依据解释结构化结果解析失败："+(e?.message||e))}
+  return {parsed,usage:envelope.usage||null,model,candidates};
+}
+function normalizeReferenceAnswer(parsed,candidates){
+  const valid=new Set(candidates.map(x=>x.id));
+  const citations=uniqStrings(safeArray(parsed?.citations).map(String).filter(x=>valid.has(x))).slice(0,8);
+  if(!citations.length)return {status:"not_found",title:"当前资料库未形成可引用结论",answer:"在当前资料库候选证据中未找到足够依据，不能据此形成规范/院标结论。",citations:[],caveat:"可补充相关规范、院标或项目要求后重新检索。",grounded:false};
+  const status=["supported","needs_review"].includes(parsed?.status)?parsed.status:"supported";
+  return {status,title:String(parsed?.title||"依据解释"),answer:String(parsed?.answer||"请查看引用证据。"),citations,caveat:String(parsed?.caveat||""),grounded:true};
+}
+async function handleReferenceAnswer(request,env){
+  const len=Number(request.headers.get("content-length")||"0");if(len>1024*1024)return json({error:"依据解释请求过大"},413);
+  let body;try{body=await request.json()}catch{return json({error:"请求 JSON 无效"},400)}
+  const error=validateReferencePayload(body);if(error)return json({error},400);
+  try{const {parsed,usage,model,candidates}=await callReferenceMiniMax(env,body);return json({ok:true,answer:normalizeReferenceAnswer(parsed,candidates),usage,model})}
+  catch(e){console.error("reference_answer_failed",e);return json({error:e?.message||"依据解释失败"},502)}
+}
+
 async function handleHistorySearch(request,env){
   const len=Number(request.headers.get("content-length")||"0");
   if(len>2*1024*1024)return json({error:"历史检索请求过大"},413);
@@ -954,7 +1013,8 @@ export default {
     if(url.pathname==="/smoke"||url.pathname==="/smoke.html"||url.pathname==="/pdf-e2e-test"||url.pathname==="/pdf-e2e-test.html"||url.pathname.startsWith("/testdata/")){
       return new Response("Not found",{status:404,headers:{"content-type":"text/plain; charset=utf-8"}});
     }
-    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.4",modules:["version-diff","drawing-review","comment-check","history-search"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/health")return json({ok:true,product:"Agent Hong",feature:"architectural-ai-workbench",engine:"agent-hong-v1.5",modules:["version-diff","drawing-review","comment-check","history-search","reference-assistant"],moduleVersions:{"version-diff":"hybrid-v1","drawing-review":"precheck-v2","comment-check":"closure-v1","history-search":"local-search-v1","reference-assistant":"grounding-v1"},model:env.MINIMAX_MODEL||"MiniMax-M3",configured:Boolean(env.MINIMAX_API_KEY)});
+    if(url.pathname==="/api/reference-answer"&&request.method==="POST")return handleReferenceAnswer(request,env);
     if(url.pathname==="/api/history-search"&&request.method==="POST")return handleHistorySearch(request,env);
     if(url.pathname==="/api/comment-check"&&request.method==="POST")return handleCommentCheck(request,env);
     if(url.pathname==="/api/review"&&request.method==="POST")return handleReview(request,env);
