@@ -204,7 +204,16 @@ function computeVisualEvidence(A,B,pairs) {
 }
 
 function stripPrepared(version){
-  return {name:version.name,type:version.type,sourcePages:version.sourcePages,pages:version.pages.map(p=>({pageNumber:p.pageNumber,image:p.image,sheetId:p.sheetId,textItemCount:p.textItems.length}))};
+  return {
+    name:version.name,type:version.type,sourcePages:version.sourcePages,
+    pages:version.pages.map(p=>{
+      const digest=String(p.textRaw||"");
+      return {
+        pageNumber:p.pageNumber,image:p.image,sheetId:p.sheetId,textItemCount:p.textItems.length,
+        textDigest:digest.slice(0,6000),textDigestTruncated:digest.length>6000
+      };
+    })
+  };
 }
 
 function deterministicPayload(det, visualRegions){
