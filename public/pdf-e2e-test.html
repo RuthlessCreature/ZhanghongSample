@@ -1,0 +1,39 @@
+<!doctype html><meta charset="utf-8"><title>Agent Hong PDF E2E Test</title>
+<style>body{font-family:ui-monospace,Consolas,monospace;max-width:1200px;margin:32px auto;padding:0 20px}pre{white-space:pre-wrap;background:#111;color:#d7ffd7;padding:20px}</style>
+<h1>Agent Hong PDF E2E Test</h1><pre id="out">RUNNING...</pre>
+<script type="module">
+const out=document.getElementById('out');
+const started=performance.now();
+async function pdfPages(url){
+ const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs');
+ pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+ const buf=await (await fetch(url,{cache:'no-store'})).arrayBuffer();
+ const pdf=await pdfjs.getDocument({data:new Uint8Array(buf)}).promise;
+ const pages=[];
+ for(let i=1;i<=Math.min(pdf.numPages,8);i++){
+  const p=await pdf.getPage(i); const raw=p.getViewport({scale:1});
+  const scale=Math.min(2.2,1500/Math.max(raw.width,raw.height)); const vp=p.getViewport({scale});
+  const c=document.createElement('canvas'); c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+  await p.render({canvasContext:x,viewport:vp,background:'white'}).promise;
+  pages.push(c.toDataURL('image/jpeg',.72));
+ }
+ return pages;
+}
+try{
+ const prepStart=performance.now();
+ const [A,B]=await Promise.all([pdfPages('/testdata/AgentHong_Test_A_RevA.pdf'),pdfPages('/testdata/AgentHong_Test_B_RevB.pdf')]);
+ const prepMs=Math.round(performance.now()-prepStart);
+ const apiStart=performance.now();
+ const r=await fetch('/api/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+   projectName:'Agent Hong 3-page PDF regression test',
+   notes:'请比较两版完整图纸。重点识别明确变更，并跨页检查平面图、南立面、门窗表之间是否存在漏同步。只按图纸证据判断。',
+   versionA:{name:'AgentHong_Test_A_RevA.pdf',pages:A},
+   versionB:{name:'AgentHong_Test_B_RevB.pdf',pages:B}
+ })});
+ const apiMs=Math.round(performance.now()-apiStart);
+ const d=await r.json(); const totalMs=Math.round(performance.now()-started);
+ document.title=r.ok&&d.ok?'PDF TEST PASS':'PDF TEST FAIL';
+ out.textContent=JSON.stringify({http:r.status,prepMs,apiMs,totalMs,response:d},null,2);
+}catch(e){document.title='PDF TEST FAIL';out.textContent='ERROR\n'+(e.stack||e)}
+</script>
